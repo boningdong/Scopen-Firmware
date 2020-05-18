@@ -23,15 +23,12 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-<<<<<<< HEAD
 #include "sram.h"
 #include "touch.h"
 #include "led.h"
-#include "utility.h"
 #include <stdio.h>
-=======
 #include "system.h"
->>>>>>> b899ec81a59862bdb1a666cf79c202394ae46924
+#include "system.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
