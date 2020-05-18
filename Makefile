@@ -36,7 +36,7 @@ BUILD_DIR = build
 ######################################
 # C sources
 C_SOURCES =  \
-Core/Src/utility.c \
+Core/Src/system.c \
 Core/Src/touch.c \
 Core/Src/main.c \
 Core/Src/stm32g4xx_it.c \

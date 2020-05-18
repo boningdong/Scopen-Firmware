@@ -1,0 +1,37 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+
+      {
+            "type": "cortex-debug",                         // type must be cortex-debug
+            "request": "launch",
+            "servertype": "openocd",                        // servertype must be openocd
+            "cwd": "${workspaceRoot}",                      // current working directory
+            "executable": "./build/Scopen-Firmware.elf",    // executable file under build/
+            "name": "Scopen",                                 // name of the configuration
+
+            /* Note the order of the following configurations are important.
+            debugger config must be prior to the controller config. */
+
+            "configFiles": [                                // configurations used by openocd
+                "interface/stlink.cfg",                // debugger type
+                "target/stm32g4x.cfg"                       // controller family
+            ],
+
+            /* SWO configurations */
+            "swoConfig": {
+                "enabled": true,
+                "cpuFrequency": 170000000,
+                "swoFrequency": 2000000,
+                "source": "probe",
+                "decoders": [
+                    { "type": "console", "label": "ITM", "port": 0 }
+                ]
+            },
+          
+            /* Create a preLaunchTask to automate the build process.
+            In addition to this file, another file called tasks.json is needed*/
+            "preLaunchTask": "build"
+      }
+  ]
+}

@@ -23,7 +23,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "system.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -113,8 +113,8 @@ int main(void)
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
   led_init();
-  swo_init();
   touch_init();
+  system_init_interfaces();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -122,7 +122,7 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-
+    printf("Running ... \n");
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
