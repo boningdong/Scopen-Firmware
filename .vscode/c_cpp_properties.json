@@ -1,0 +1,36 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "cStandard": "c11",
+            "intelliSenseMode": "msvc-x64"
+        },
+        {
+            "name": "STM32",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "Core/Inc/**",
+                "Drivers/STM32G4xx_HAL_Driver/Inc/**",
+                "Drivers/STM32G4xx_HAL_Driver/Inc/Legacy/**",
+                "Drivers/CMSIS/Device/ST/STM32G4xx/Include/**",
+                "Drivers/CMSIS/Include/**"
+            ],
+            "defines": [
+                "USE_HAL_DRIVER",
+                "STM32G474xx"
+            ],
+            "cStandard": "c11",
+            "intelliSenseMode": "gcc-arm",
+            "compilerPath": "\"C:\\Program Files (x86)\\ARM GNU Tools\\bin\\arm-none-eabi-gcc.exe\""
+        }
+    ],
+    "version": 4
+}
