@@ -117,27 +117,12 @@ int main(void)
   MX_I2C3_Init();
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
+
   led_init();
-//  touch_init();
-  printf("start running...\n");
-  fill_buffer(tx_buffer, 256, 0x44);
-  fill_buffer(rx_buffer, 256, 0);
-  write_memory(0x800, tx_buffer, 256, 1);
-  read_memory(0x800, rx_buffer, 256, 1);
   touch_init();
   system_init_interfaces();
+  
   /* USER CODE END 2 */
-  for(int i = 0; i < 256; i++) {
-    printf("<%d>%d\n", i, rx_buffer[i]);
-  }
-
-  GPIO_InitTypeDef GPIOInitStruct = {0};
-  GPIOInitStruct.Mode = GPIO_MODE_OUTPUT_OD;
-  GPIOInitStruct.Pin = GPIO_PIN_10 | GPIO_PIN_11;
-  GPIOInitStruct.Pull = GPIO_PULLUP;
-  GPIOInitStruct.Speed = GPIO_SPEED_LOW;
-  HAL_GPIO_Init(GPIOB, &GPIOInitStruct);
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10 | GPIO_PIN_11, GPIO_PIN_SET);
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
