@@ -23,7 +23,11 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "sram.h"
+#include "touch.h"
+#include "led.h"
+#include "utility.h"
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -114,15 +118,36 @@ int main(void)
   /* USER CODE BEGIN 2 */
   led_init();
   swo_init();
-  touch_init();
+//  touch_init();
+
+
+  
+  printf("start running...\n");
+  fill_buffer(tx_buffer, 256, 0x44);
+  fill_buffer(rx_buffer, 256, 0);
+  write_memory(0x800, tx_buffer, 256, 1);
+  read_memory(0x800, rx_buffer, 256, 1);
   /* USER CODE END 2 */
+  for(int i = 0; i < 256; i++) {
+    printf("<%d>%d\n", i, rx_buffer[i]);
+  }
+
+  GPIO_InitTypeDef GPIOInitStruct = {0};
+  GPIOInitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+  GPIOInitStruct.Pin = GPIO_PIN_10 | GPIO_PIN_11;
+  GPIOInitStruct.Pull = GPIO_PULLUP;
+  GPIOInitStruct.Speed = GPIO_SPEED_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIOInitStruct);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10 | GPIO_PIN_11, GPIO_PIN_SET);
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
     /* USER CODE END WHILE */
-
+    HAL_GPIO_TogglePin(GPIO_LED_GROUP, GPIO_LED_RED_PIN);
+    HAL_GPIO_TogglePin(GPIO_LED_GROUP, GPIO_LED_GREEN_PIN);
+    HAL_Delay(500);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -540,7 +565,7 @@ static void MX_FMC_Init(void)
   hsram1.Init.BurstAccessMode = FMC_BURST_ACCESS_MODE_DISABLE;
   hsram1.Init.WaitSignalPolarity = FMC_WAIT_SIGNAL_POLARITY_LOW;
   hsram1.Init.WaitSignalActive = FMC_WAIT_TIMING_BEFORE_WS;
-  hsram1.Init.WriteOperation = FMC_WRITE_OPERATION_DISABLE;
+  hsram1.Init.WriteOperation = FMC_WRITE_OPERATION_ENABLE;
   hsram1.Init.WaitSignal = FMC_WAIT_SIGNAL_DISABLE;
   hsram1.Init.ExtendedMode = FMC_EXTENDED_MODE_DISABLE;
   hsram1.Init.AsynchronousWait = FMC_ASYNCHRONOUS_WAIT_DISABLE;
@@ -552,12 +577,12 @@ static void MX_FMC_Init(void)
   hsram1.Init.MaxChipSelectPulse = DISABLE;
   /* Timing */
   Timing.AddressSetupTime = 2;
-  Timing.AddressHoldTime = 15;
+  Timing.AddressHoldTime = 2;
   Timing.DataSetupTime = 2;
   Timing.DataHoldTime = 0;
   Timing.BusTurnAroundDuration = 2;
-  Timing.CLKDivision = 16;
-  Timing.DataLatency = 17;
+  Timing.CLKDivision = 2;
+  Timing.DataLatency = 2;
   Timing.AccessMode = FMC_ACCESS_MODE_A;
   /* ExtTiming */
 
