@@ -121,21 +121,14 @@ int main(void)
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
   led_init();
-<<<<<<< HEAD
-  swo_init();
 //  touch_init();
-
-
-  
   printf("start running...\n");
   fill_buffer(tx_buffer, 256, 0x44);
   fill_buffer(rx_buffer, 256, 0);
   write_memory(0x800, tx_buffer, 256, 1);
   read_memory(0x800, rx_buffer, 256, 1);
-=======
   touch_init();
   system_init_interfaces();
->>>>>>> b899ec81a59862bdb1a666cf79c202394ae46924
   /* USER CODE END 2 */
   for(int i = 0; i < 256; i++) {
     printf("<%d>%d\n", i, rx_buffer[i]);
@@ -154,13 +147,9 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-<<<<<<< HEAD
     HAL_GPIO_TogglePin(GPIO_LED_GROUP, GPIO_LED_RED_PIN);
     HAL_GPIO_TogglePin(GPIO_LED_GROUP, GPIO_LED_GREEN_PIN);
     HAL_Delay(500);
-=======
-    printf("Running ... \n");
->>>>>>> b899ec81a59862bdb1a666cf79c202394ae46924
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */

@@ -36,14 +36,11 @@ BUILD_DIR = build
 ######################################
 # C sources
 C_SOURCES =  \
-<<<<<<< HEAD
 Core/Src/sram.c \
 Core/Src/utility.c \
-=======
 Core/Src/afe.c \
 Core/Src/memory.c \
 Core/Src/system.c \
->>>>>>> b899ec81a59862bdb1a666cf79c202394ae46924
 Core/Src/touch.c \
 Core/Src/main.c \
 Core/Src/stm32g4xx_it.c \
