@@ -36,6 +36,8 @@ BUILD_DIR = build
 ######################################
 # C sources
 C_SOURCES =  \
+Core/Src/afe.c \
+Core/Src/memory.c \
 Core/Src/system.c \
 Core/Src/touch.c \
 Core/Src/main.c \
