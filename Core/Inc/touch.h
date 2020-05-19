@@ -7,9 +7,6 @@
 #define TOUCH_RDY_GROUP GPIOA
 #define TOUCH_RDY_PIN GPIO_PIN_10
 
-void user_button_init();
-void touch_init();
-bool request_comms();
 
 typedef union {
   uint8_t flagByte;
@@ -70,6 +67,41 @@ typedef union{
 		uint8_t segment1:1;
 	};
 } trackpad_flags_t;
+
+
+void user_button_init();
+
+/**
+ * @brief Initialize the MCU interfaces connected to iqs266.
+ * 				Also enable the interrupt of the MCU to accept iqs266 event.
+ */
+void iqs266_init();
+
+/**
+ * @brief Request a communication window from iqs266
+ * 
+ * @return true The request is succeful.
+ * @return false The reuqest is not succeful.
+ */
+
+bool iqs266_request_comms();
+
+/**
+ * @brief Wait for the ready signal (RDY low) within timeout.
+ * 
+ * @return true The iqs266 is ready (RDY is low).
+ * @return false The iqs266 is not ready.
+ */
+bool iqs266_wait_ready();
+
+
+static void _set_ready_output();
+static void _set_ready_input();
+static void _disable_ready_interrupt();
+static void _enable_ready_interrupt();
+static void _toggle_ready();
+static void _read_random_bytes(uint16_t address, uint8_t buffer[], uint16_t size);
+static void _write_random_bytes(uint16_t address, uint8_t buffer[], uint16_t size);
 
 
 /*******************************************************************************

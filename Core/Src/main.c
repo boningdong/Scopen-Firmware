@@ -119,9 +119,9 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   led_init();
-  touch_init();
+  iqs266_init();
   system_init_interfaces();
-  
+
   /* USER CODE END 2 */
 
   /* Infinite loop */

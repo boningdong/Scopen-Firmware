@@ -11,6 +11,9 @@
 
 #include "system.h"
 #include <stdio.h>
+#include <stm32g4xx_ll_bus.h>
+#include <stm32g4xx_ll_i2c.h>
+#include <stm32g4xx_ll_gpio.h>
 
 /**
  * @brief Initialize the system interfaces to avoid conflicts with other chips.

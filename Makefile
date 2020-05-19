@@ -36,6 +36,7 @@ BUILD_DIR = build
 ######################################
 # C sources
 C_SOURCES =  \
+Core/Src/periph/i2c.c \
 Core/Src/sram.c \
 Core/Src/afe.c \
 Core/Src/system.c \
@@ -69,6 +70,8 @@ Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_tim_ex.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_ll_pwr.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_uart.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_uart_ex.c \
+Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_ll_gpio.c \
+Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_ll_i2c.c \
 Core/Src/system_stm32g4xx.c
 
 # ASM sources
@@ -117,6 +120,7 @@ AS_DEFS =
 
 # C defines
 C_DEFS =  \
+-DUSE_FULL_LL_DRIVER \
 -DUSE_HAL_DRIVER \
 -DSTM32G474xx
 

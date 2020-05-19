@@ -25,7 +25,8 @@
             ],
             "defines": [
                 "USE_HAL_DRIVER",
-                "STM32G474xx"
+                "STM32G474xx",
+                "USE_FULL_LL_DRIVER"
             ],
             "cStandard": "c11",
             "intelliSenseMode": "gcc-arm",
