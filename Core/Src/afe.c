@@ -1,6 +1,6 @@
 /**
  * @file afe.c
- * @author boning@ucsb.edu baguilar@ucsb.edu
+ * @author boning@ucsb.edu baguilar@ucsb.edu cesar04@ucsb.edu
  * @brief Includes all of the prototypes related to the AFE.
  * @version 0.1
  * @date 2020-05-17
@@ -15,7 +15,12 @@
  */
 
 #include "afe.h"
-#define ADC_SIZE 100
+#include <math.h>
+#define ADC1_GPIO GPIO_PIN_0|GPIO_PIN_1
+#define ADC2_GPIO GPIO_PIN_6|GPIO_PIN_7
+#define ADC4_GPIO GPIO_PIN_12|GPIO_PIN_14;
+#define ADC5_GPIO GPIO_PIN_8|GPIO_PIN_9
+
 DAC_HandleTypeDef hdac1;
 DAC_HandleTypeDef hdac3;
 
@@ -33,16 +38,20 @@ HRTIM_HandleTypeDef hhrtim1;
 
 OPAMP_HandleTypeDef hopamp3;
 
-uint8_t adc1Data[ADC_SIZE];
-uint8_t adc2Data[ADC_SIZE];
-uint8_t adc4Data[ADC_SIZE];
-uint8_t adc5Data[ADC_SIZE];
+uint8_t adc1Data[ADC_DATA_LENGTH];
+uint8_t adc2Data[ADC_DATA_LENGTH];
+uint8_t adc4Data[ADC_DATA_LENGTH];
+uint8_t adc5Data[ADC_DATA_LENGTH];
 
 
-
+/**
+ * @brief Initializes all AFE peripherals
+ *        Uses afe_adc_initialize and afe_adc_hrtim_initialize
+ */
 void afe_initialize(){
     //Initializes Relay pin and sets it to off
     __HAL_RCC_GPIOA_CLK_ENABLE();
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_RESET);
     GPIO_InitStruct.Pin = GPIO_PIN_2;
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -73,7 +82,13 @@ void afe_initialize(){
     }
 
     //DAC for VCM control in DIFF AMP
-   
+    //Enables opamp buffer first then the DAC peripheral
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+    GPIO_InitStruct.Pin = GPIO_PIN_1;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+    
     hopamp3.Instance = OPAMP3;
     hopamp3.Init.PowerMode = OPAMP_POWERMODE_NORMAL;
     hopamp3.Init.Mode = OPAMP_FOLLOWER_MODE;
@@ -86,7 +101,6 @@ void afe_initialize(){
         Error_Handler();
     }
 
-    DAC_ChannelConfTypeDef sConfig = {0};
     hdac3.Instance = DAC3;
     if (HAL_DAC_Init(&hdac3) != HAL_OK)
     {
@@ -105,43 +119,64 @@ void afe_initialize(){
     {
         Error_Handler();
     }
-    
+    /* DMA controller clock enable */
+  __HAL_RCC_DMAMUX1_CLK_ENABLE();
+  __HAL_RCC_DMA1_CLK_ENABLE();
+  __HAL_RCC_DMA2_CLK_ENABLE();
+
+    /* DMA interrupt init */
+    /* DMA1_Channel1_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+    /* DMA1_Channel2_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
+    /* DMA2_Channel1_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(DMA2_Channel1_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(DMA2_Channel1_IRQn);
+    /* DMA2_Channel2_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(DMA2_Channel2_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(DMA2_Channel2_IRQn);
+
+    HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(DMA1_Channel3_IRQn);
+
+    HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
     afe_adc_initialize();
-    MX_HRTIM1_Init();
-}
-
-void HAL_OPAMP_MspInit(OPAMP_HandleTypeDef* opampHandle)
-{
-
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-  if(opampHandle->Instance==OPAMP3)
-  {
-  /* USER CODE BEGIN OPAMP3_MspInit 0 */
-
-  /* USER CODE END OPAMP3_MspInit 0 */
-  
-    __HAL_RCC_GPIOB_CLK_ENABLE();
-    /**OPAMP3 GPIO Configuration    
-    PB1     ------> OPAMP3_VOUT 
-    */
-    GPIO_InitStruct.Pin = GPIO_PIN_1;
-    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /* USER CODE BEGIN OPAMP3_MspInit 1 */
-
-  /* USER CODE END OPAMP3_MspInit 1 */
-  }
+    afe_adc_hrtim_initialize();
+    HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
+    HAL_DAC_Start(&hdac3, DAC_CHANNEL_2);
 }
 
 void afe_adc_initialize() {
     GPIO_InitTypeDef GPIO_InitStruct = {0};
     //ADC1
     __HAL_RCC_GPIOA_CLK_ENABLE();
+     __HAL_RCC_ADC12_CLK_ENABLE();
+    
+    GPIO_InitStruct.Pin = ADC1_GPIO;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+    hdma_adc1.Instance = DMA1_Channel1; //DMA for adc data
+    hdma_adc1.Init.Request = DMA_REQUEST_ADC1;
+    hdma_adc1.Init.Direction = DMA_PERIPH_TO_MEMORY;
+    hdma_adc1.Init.PeriphInc = DMA_PINC_DISABLE;
+    hdma_adc1.Init.MemInc = DMA_MINC_ENABLE;
+    hdma_adc1.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
+    hdma_adc1.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+    hdma_adc1.Init.Mode = DMA_NORMAL;
+    hdma_adc1.Init.Priority = DMA_PRIORITY_HIGH;
+    if (HAL_DMA_Init(&hdma_adc1) != HAL_OK)
+    {
+      Error_Handler();
+    }
+    __HAL_LINKDMA(&hadc1,DMA_Handle,hdma_adc1);
     ADC_MultiModeTypeDef multimode = {0};
     ADC_ChannelConfTypeDef sConfig = {0};
-
+    
     hadc1.Instance = ADC1;
     hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
     hadc1.Init.Resolution = ADC_RESOLUTION_8B;
@@ -179,7 +214,27 @@ void afe_adc_initialize() {
     }
 
     //ADC2
-    ADC_ChannelConfTypeDef sConfig = {0};
+    GPIO_InitStruct.Pin = ADC2_GPIO;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+    hdma_adc2.Instance = DMA2_Channel1;
+    hdma_adc2.Init.Request = DMA_REQUEST_ADC2;
+    hdma_adc2.Init.Direction = DMA_PERIPH_TO_MEMORY;
+    hdma_adc2.Init.PeriphInc = DMA_PINC_DISABLE;
+    hdma_adc2.Init.MemInc = DMA_MINC_ENABLE;
+    hdma_adc2.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
+    hdma_adc2.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+    hdma_adc2.Init.Mode = DMA_NORMAL;
+    hdma_adc2.Init.Priority = DMA_PRIORITY_HIGH;
+    if (HAL_DMA_Init(&hdma_adc2) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    __HAL_LINKDMA(&hadc2,DMA_Handle,hdma_adc2);
+
     hadc2.Instance = ADC2;
     hadc2.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
     hadc2.Init.Resolution = ADC_RESOLUTION_8B;
@@ -212,7 +267,29 @@ void afe_adc_initialize() {
     }
 
     //ADC4
-    ADC_ChannelConfTypeDef sConfig = {0};
+    __HAL_RCC_ADC345_CLK_ENABLE();
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+    GPIO_InitStruct.Pin = ADC4_GPIO;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+    hdma_adc4.Instance = DMA1_Channel2;
+    hdma_adc4.Init.Request = DMA_REQUEST_ADC4;
+    hdma_adc4.Init.Direction = DMA_PERIPH_TO_MEMORY;
+    hdma_adc4.Init.PeriphInc = DMA_PINC_DISABLE;
+    hdma_adc4.Init.MemInc = DMA_MINC_ENABLE;
+    hdma_adc4.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
+    hdma_adc4.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+    hdma_adc4.Init.Mode = DMA_NORMAL;
+    hdma_adc4.Init.Priority = DMA_PRIORITY_HIGH;
+    if (HAL_DMA_Init(&hdma_adc4) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    __HAL_LINKDMA(&hadc4,DMA_Handle,hdma_adc4);
+
     hadc4.Instance = ADC4;
     hadc4.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
     hadc4.Init.Resolution = ADC_RESOLUTION_8B;
@@ -245,7 +322,27 @@ void afe_adc_initialize() {
     }
 
     //ADC5
-     ADC_ChannelConfTypeDef sConfig = {0};
+    GPIO_InitStruct.Pin = ADC5_GPIO;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+    hdma_adc5.Instance = DMA2_Channel2;
+    hdma_adc5.Init.Request = DMA_REQUEST_ADC5;
+    hdma_adc5.Init.Direction = DMA_PERIPH_TO_MEMORY;
+    hdma_adc5.Init.PeriphInc = DMA_PINC_DISABLE;
+    hdma_adc5.Init.MemInc = DMA_MINC_ENABLE;
+    hdma_adc5.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
+    hdma_adc5.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+    hdma_adc5.Init.Mode = DMA_NORMAL;
+    hdma_adc5.Init.Priority = DMA_PRIORITY_HIGH;
+    if (HAL_DMA_Init(&hdma_adc5) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    __HAL_LINKDMA(&hadc5,DMA_Handle,hdma_adc5);
+
     hadc5.Instance = ADC5;
     hadc5.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
     hadc5.Init.Resolution = ADC_RESOLUTION_8B;
@@ -278,189 +375,10 @@ void afe_adc_initialize() {
     }
 }
 
-static uint32_t HAL_RCC_ADC12_CLK_ENABLED=0;
-static uint32_t HAL_RCC_ADC345_CLK_ENABLED=0;
 
-void HAL_ADC_MspInit(ADC_HandleTypeDef* adcHandle)
+void afe_adc_hrtim_initialize(void)
 {
-
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-  if(adcHandle->Instance==ADC1)
-  {
-  /* USER CODE BEGIN ADC1_MspInit 0 */
-
-  /* USER CODE END ADC1_MspInit 0 */
-    /* ADC1 clock enable */
-    HAL_RCC_ADC12_CLK_ENABLED++;
-    if(HAL_RCC_ADC12_CLK_ENABLED==1){
-      __HAL_RCC_ADC12_CLK_ENABLE();
-    }
-  
-    __HAL_RCC_GPIOA_CLK_ENABLE();
-    /**ADC1 GPIO Configuration    
-    PA0     ------> ADC1_IN1
-    PA1     ------> ADC1_IN2 
-    */
-    GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1;
-    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-    /* ADC1 DMA Init */
-    /* ADC1 Init */
-    hdma_adc1.Instance = DMA1_Channel1;
-    hdma_adc1.Init.Request = DMA_REQUEST_ADC1;
-    hdma_adc1.Init.Direction = DMA_PERIPH_TO_MEMORY;
-    hdma_adc1.Init.PeriphInc = DMA_PINC_DISABLE;
-    hdma_adc1.Init.MemInc = DMA_MINC_ENABLE;
-    hdma_adc1.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
-    hdma_adc1.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
-    hdma_adc1.Init.Mode = DMA_NORMAL;
-    hdma_adc1.Init.Priority = DMA_PRIORITY_HIGH;
-    if (HAL_DMA_Init(&hdma_adc1) != HAL_OK)
-    {
-      Error_Handler();
-    }
-
-    __HAL_LINKDMA(adcHandle,DMA_Handle,hdma_adc1);
-
-  /* USER CODE BEGIN ADC1_MspInit 1 */
-
-  /* USER CODE END ADC1_MspInit 1 */
-  }
-  else if(adcHandle->Instance==ADC2)
-  {
-  /* USER CODE BEGIN ADC2_MspInit 0 */
-
-  /* USER CODE END ADC2_MspInit 0 */
-    /* ADC2 clock enable */
-    HAL_RCC_ADC12_CLK_ENABLED++;
-    if(HAL_RCC_ADC12_CLK_ENABLED==1){
-      __HAL_RCC_ADC12_CLK_ENABLE();
-    }
-  
-    __HAL_RCC_GPIOA_CLK_ENABLE();
-    /**ADC2 GPIO Configuration    
-    PA6     ------> ADC2_IN3
-    PA7     ------> ADC2_IN4 
-    */
-    GPIO_InitStruct.Pin = GPIO_PIN_6|GPIO_PIN_7;
-    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-    /* ADC2 DMA Init */
-    /* ADC2 Init */
-    hdma_adc2.Instance = DMA2_Channel1;
-    hdma_adc2.Init.Request = DMA_REQUEST_ADC2;
-    hdma_adc2.Init.Direction = DMA_PERIPH_TO_MEMORY;
-    hdma_adc2.Init.PeriphInc = DMA_PINC_DISABLE;
-    hdma_adc2.Init.MemInc = DMA_MINC_ENABLE;
-    hdma_adc2.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
-    hdma_adc2.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
-    hdma_adc2.Init.Mode = DMA_NORMAL;
-    hdma_adc2.Init.Priority = DMA_PRIORITY_HIGH;
-    if (HAL_DMA_Init(&hdma_adc2) != HAL_OK)
-    {
-      Error_Handler();
-    }
-
-    __HAL_LINKDMA(adcHandle,DMA_Handle,hdma_adc2);
-
-  /* USER CODE BEGIN ADC2_MspInit 1 */
-
-  /* USER CODE END ADC2_MspInit 1 */
-  }
-  else if(adcHandle->Instance==ADC4)
-  {
-  /* USER CODE BEGIN ADC4_MspInit 0 */
-
-  /* USER CODE END ADC4_MspInit 0 */
-    /* ADC4 clock enable */
-    HAL_RCC_ADC345_CLK_ENABLED++;
-    if(HAL_RCC_ADC345_CLK_ENABLED==1){
-      __HAL_RCC_ADC345_CLK_ENABLE();
-    }
-  
-    __HAL_RCC_GPIOB_CLK_ENABLE();
-    /**ADC4 GPIO Configuration    
-    PB12     ------> ADC4_IN3
-    PB14     ------> ADC4_IN4 
-    */
-    GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_14;
-    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-    /* ADC4 DMA Init */
-    /* ADC4 Init */
-    hdma_adc4.Instance = DMA1_Channel2;
-    hdma_adc4.Init.Request = DMA_REQUEST_ADC4;
-    hdma_adc4.Init.Direction = DMA_PERIPH_TO_MEMORY;
-    hdma_adc4.Init.PeriphInc = DMA_PINC_DISABLE;
-    hdma_adc4.Init.MemInc = DMA_MINC_ENABLE;
-    hdma_adc4.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
-    hdma_adc4.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
-    hdma_adc4.Init.Mode = DMA_NORMAL;
-    hdma_adc4.Init.Priority = DMA_PRIORITY_HIGH;
-    if (HAL_DMA_Init(&hdma_adc4) != HAL_OK)
-    {
-      Error_Handler();
-    }
-
-    __HAL_LINKDMA(adcHandle,DMA_Handle,hdma_adc4);
-
-  /* USER CODE BEGIN ADC4_MspInit 1 */
-
-  /* USER CODE END ADC4_MspInit 1 */
-  }
-  else if(adcHandle->Instance==ADC5)
-  {
-  /* USER CODE BEGIN ADC5_MspInit 0 */
-
-  /* USER CODE END ADC5_MspInit 0 */
-    /* ADC5 clock enable */
-    HAL_RCC_ADC345_CLK_ENABLED++;
-    if(HAL_RCC_ADC345_CLK_ENABLED==1){
-      __HAL_RCC_ADC345_CLK_ENABLE();
-    }
-  
-    __HAL_RCC_GPIOA_CLK_ENABLE();
-    /**ADC5 GPIO Configuration    
-    PA8     ------> ADC5_IN1
-    PA9     ------> ADC5_IN2 
-    */
-    GPIO_InitStruct.Pin = GPIO_PIN_8|GPIO_PIN_9;
-    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-    /* ADC5 DMA Init */
-    /* ADC5 Init */
-    hdma_adc5.Instance = DMA2_Channel2;
-    hdma_adc5.Init.Request = DMA_REQUEST_ADC5;
-    hdma_adc5.Init.Direction = DMA_PERIPH_TO_MEMORY;
-    hdma_adc5.Init.PeriphInc = DMA_PINC_DISABLE;
-    hdma_adc5.Init.MemInc = DMA_MINC_ENABLE;
-    hdma_adc5.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
-    hdma_adc5.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
-    hdma_adc5.Init.Mode = DMA_NORMAL;
-    hdma_adc5.Init.Priority = DMA_PRIORITY_HIGH;
-    if (HAL_DMA_Init(&hdma_adc5) != HAL_OK)
-    {
-      Error_Handler();
-    }
-
-    __HAL_LINKDMA(adcHandle,DMA_Handle,hdma_adc5);
-
-  /* USER CODE BEGIN ADC5_MspInit 1 */
-
-  /* USER CODE END ADC5_MspInit 1 */
-  }
-}
-
-void MX_HRTIM1_Init(void)
-{
+  __HAL_RCC_HRTIM1_CLK_ENABLE();
   uint32_t period = 4*4;
   HRTIM_ADCTriggerCfgTypeDef pADCTriggerCfg = {0};
   HRTIM_TimeBaseCfgTypeDef pTimeBaseCfg = {0};
@@ -565,36 +483,22 @@ void MX_HRTIM1_Init(void)
 
 }
 
-void HAL_HRTIM_MspInit(HRTIM_HandleTypeDef* hrtimHandle)
-{
-
-  if(hrtimHandle->Instance==HRTIM1)
-  {
-  /* USER CODE BEGIN HRTIM1_MspInit 0 */
-
-  /* USER CODE END HRTIM1_MspInit 0 */
-    /* HRTIM1 clock enable */
-    __HAL_RCC_HRTIM1_CLK_ENABLE();
-  /* USER CODE BEGIN HRTIM1_MspInit 1 */
-
-  /* USER CODE END HRTIM1_MspInit 1 */
-  }
-}
 
 void afe_sampling_start() {
+    //calibrates all ADCs and starts them in DMA mode
     HAL_ADCEx_Calibration_Start(&hadc1, ADC_DIFFERENTIAL_ENDED);
     HAL_ADCEx_Calibration_Start(&hadc2, ADC_DIFFERENTIAL_ENDED);
     HAL_ADCEx_Calibration_Start(&hadc4, ADC_DIFFERENTIAL_ENDED);
     HAL_ADCEx_Calibration_Start(&hadc5, ADC_DIFFERENTIAL_ENDED);
-    HAL_ADC_Start_DMA(&hadc1, adc1Data, ADC_SIZE);
-    HAL_ADC_Start_DMA(&hadc2, adc2Data, ADC_SIZE);
-    HAL_ADC_Start_DMA(&hadc4, adc4Data, ADC_SIZE);
-    HAL_ADC_Start_DMA(&hadc5, adc5Data, ADC_SIZE);
+    HAL_ADC_Start_DMA(&hadc1, adc1Data, ADC_DATA_LENGTH);
+    HAL_ADC_Start_DMA(&hadc2, adc2Data, ADC_DATA_LENGTH);
+    HAL_ADC_Start_DMA(&hadc4, adc4Data, ADC_DATA_LENGTH);
+    HAL_ADC_Start_DMA(&hadc5, adc5Data, ADC_DATA_LENGTH);
     HAL_HRTIM_SimpleBaseStart (&hhrtim1, HRTIM_TIMERINDEX_MASTER);
 }
 
 void afe_sampling_stop() {
-
+  HAL_HRTIM_SimpleBaseStop(&hhrtim1, HRTIM_TIMERINDEX_MASTER);
 }
 
 void afe_relay_control(bool on) {
@@ -606,11 +510,98 @@ void afe_relay_control(bool on) {
     }
 }
 
-void afe_set_gain() {
-
+void afe_set_gain(uint8_t mode) {
+  float gaindb;
+  float vga_in;
+  float dac_output_analog;
+  uint32_t dac_output_digitized;
+  float pkpk = 1.5;
+  float attenuated; 
+  if(mode <= 4){
+    afe_relay_control(1);
+  }
+  else{
+    afe_relay_control(0);
+  }
+  switch(mode) {
+      case 1: //10mV/Division 100mVpp
+        gaindb = 20*log10(pkpk / 0.1);  
+        break; 
+      case 2: //20mV/Division 200mVpp
+        gaindb = 20*log10(pkpk / 0.20);
+        break; 
+      case 3: //50mV/Division 500mVpp
+        gaindb = 20*log10(pkpk / 0.5);
+        break; 
+      case 4: //100mV/Division 1Vpp
+        gaindb = 20*log10(pkpk / 1.0);
+        break; 
+      case 5: //200mV/Division 2Vpp
+        gaindb = 20*log10(pkpk / 2.0);
+        break; 
+      case 6: //500mV/Division 5Vpp                                                                                                                                                                                                                                                                                                             
+        attenuated = 5 * 0.024; 
+        gaindb = 20*log10(pkpk / attenuated);
+        break; 
+      case 7: //1V/Division 10vpp
+       attenuated = 10 * 0.024; 
+        gaindb = 20*log10(pkpk / attenuated);;
+        break; 
+      case 8: //2V/Division 20Vpp
+        attenuated = 20 * 0.024; 
+        gaindb = 20*log10(pkpk / attenuated);
+        break; 
+      case 9: //5V/Division 50Vpp
+        attenuated = 50 * 0.024; 
+        gaindb = 20*log10(pkpk / attenuated);
+        break;
+      case 10: //10V/Division 100Vpp
+        attenuated = 100 * 0.024; 
+        gaindb = 20*log10(pkpk / attenuated);
+        break;   
+    }
+  vga_in = (gaindb - 12.65) / 19.7;
+  dac_output_analog = (vga_in + 1.8) / 2;
+  dac_output_digitized = (dac_output_analog+0.892)*(0xfff+1)/1.8;
+  HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_12B_R, dac_output_digitized);
 }
 
 void afe_set_offset() {
-
+  float offset = 0.9;
+  offset = (offset+0.892)*(0xfff+1)/1.8;
+  HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_2, DAC_ALIGN_12B_R, offset);
 }
 
+void DMA1_Channel1_IRQHandler(void)
+{
+  HAL_DMA_IRQHandler(&hdma_adc1);
+  if(__HAL_DMA_GET_COUNTER(&hdma_adc1) == 0){//adc1 checks if all items in buffer were filled
+    HAL_ADC_Stop_DMA(&hadc1);
+  }
+}
+
+void DMA1_Channel2_IRQHandler(void)
+{
+  HAL_DMA_IRQHandler(&hdma_adc4);
+  if(__HAL_DMA_GET_COUNTER(&hdma_adc4) == 0){//adc4
+    HAL_ADC_Stop_DMA(&hadc4);
+  }
+}
+
+void DMA2_Channel1_IRQHandler(void)
+{
+  HAL_DMA_IRQHandler(&hdma_adc2);
+  if(__HAL_DMA_GET_COUNTER(&hdma_adc2)==0){ //adc2
+    HAL_ADC_Stop_DMA(&hadc2);
+  }
+}
+//This is last ADC done, so here is where we stop the timer and start transmitting data
+void DMA2_Channel2_IRQHandler(void)
+{
+  HAL_DMA_IRQHandler(&hdma_adc5);
+  
+  if(__HAL_DMA_GET_COUNTER(&hdma_adc5) == 0){ //adc5
+    HAL_ADC_Stop_DMA(&hadc5);
+    afe_sampling_stop();
+  }
+}

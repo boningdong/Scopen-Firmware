@@ -72,6 +72,7 @@ Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_uart.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_uart_ex.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_ll_gpio.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_ll_i2c.c \
+Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_hrtim.c\
 Core/Src/system_stm32g4xx.c
 
 # ASM sources
