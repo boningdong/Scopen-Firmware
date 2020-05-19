@@ -137,12 +137,6 @@ void afe_initialize(){
     /* DMA2_Channel2_IRQn interrupt configuration */
     HAL_NVIC_SetPriority(DMA2_Channel2_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(DMA2_Channel2_IRQn);
-
-    HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, 0, 0);
-    HAL_NVIC_EnableIRQ(DMA1_Channel3_IRQn);
-
-    HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 0, 0);
-    HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
     afe_adc_initialize();
     afe_adc_hrtim_initialize();
     HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);

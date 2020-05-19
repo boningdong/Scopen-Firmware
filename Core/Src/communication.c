@@ -55,6 +55,13 @@ void communication_initialization() {
     
     /* SPI3 DMA Init */
     /* SPI3_RX Init */
+    
+    HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(DMA1_Channel3_IRQn);
+
+    HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
+
     hdma_spi3_rx.Instance = DMA1_Channel3;
     hdma_spi3_rx.Init.Request = DMA_REQUEST_SPI3_RX;
     hdma_spi3_rx.Init.Direction = DMA_PERIPH_TO_MEMORY;
