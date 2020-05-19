@@ -8,8 +8,8 @@
 extern uint16_t tx_buffer[256];
 extern uint16_t rx_buffer[256];
 
-void fill_buffer(uint16_t* buffer, uint16_t size, uint16_t data);
-void write_memory(uint32_t address, uint16_t* buffer, uint16_t size, uint16_t stride);
-void read_memory(uint32_t address, uint16_t* buffer, uint16_t size, uint16_t stride);
+void sram_fill_buffer(uint16_t* buffer, uint16_t size, uint16_t data);
+void sram_rand_write(uint32_t address, uint16_t* buffer, uint16_t size, uint16_t stride);
+void sram_rand_read(uint32_t address, uint16_t* buffer, uint16_t size, uint16_t stride);
 
 #endif
