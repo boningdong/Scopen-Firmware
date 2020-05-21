@@ -92,8 +92,20 @@ void iqs266_disable_events(uint8_t event_bits, bool restart);
 void iqs266_disable_all_events(bool restart);
 void iqs266_enable_channel(channel_t channel, bool restart);
 void iqs266_disable_channel(channel_t channel, bool restart);
+void iqs266_set_halt_timeout(uint8_t timeout, bool restart);
+void iqs266_set_np_segment_rate(uint8_t value, bool restart);
+void iqs266_set_report_rate_lp(uint8_t value, bool restart);
+void iqs266_set_report_rate_nm(uint8_t value, bool restart);
+void iqs266_set_zoom_timeout(uint8_t timeout, bool restart);
+void iqs266_set_touch_ati_target(uint8_t value, bool restart);
+void iqs266_set_touch_base_value(uint8_t value, bool restart);
 void iqs266_set_touch_sensitivity(channel_t channel, uint8_t sensitivity, bool restart);
 void iqs266_set_proximate_sensitivity(uint8_t sensitivity, bool restart);
+void iqs266_set_tap_timeout(uint8_t timeout, bool restart);
+void iqs266_set_tap_threshold(uint8_t threshold, bool restart);
+void iqs266_set_swipe_timeout(uint8_t timeout, bool restart);
+void iqs266_set_swipe_threshold(uint8_t threshold, bool restart);
+
 
 uint8_t iqs266_read_system_flags(bool restart);
 uint8_t iqs266_read_trackpad_flags(bool restart);
@@ -102,6 +114,11 @@ uint8_t iqs266_read_gestures(bool restart);
 uint8_t iqs266_read_approximate(bool restart);
 uint8_t iqs266_read_touch(bool restart);
 uint8_t iqs266_read_channels(bool restart);
+uint16_t iqs266_read_channel_counts(channel_t channel, bool restart);
+uint16_t iqs266_read_channel_delta(channel_t channel, bool restart);
+uint16_t iqs266_read_channel_lta(channel_t channel, bool restart);
+
+
 
 /*******************************************************************************
                       IQS266 - Registers & Memory Map

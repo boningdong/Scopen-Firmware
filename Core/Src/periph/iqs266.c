@@ -166,6 +166,215 @@ uint8_t iqs266_read_channels(bool restart) {
 }
 
 /**
+ * @brief A method which reads and returns the counts value of a specific channel
+ * 
+ * @param channel     The enumerator which specifes which channel's counts to return.
+ * @param restart     Determines if the RESART or STOP bit is sent after the communication is done.
+ * @return uint16_t   Returns a 16 bit unsigned integer containing the counts value of the channel.
+ */
+uint16_t iqs266_read_channel_counts(channel_t channel, bool restart) {
+  uint8_t buffer[2];      
+  uint8_t start_address = ACF_CH0;  // The address of the first channel's counts bytes, this address is adjusted according to the enum passed.
+  uint8_t count_low = 0;            // Temporary storage for the counts low byte.
+  uint8_t count_high = 0;           // Temporary storage for the counts high byte.
+  uint16_t count_value = 0;         // The 16bit return value.
+
+  // Adjust the address according to the channel enum which was passed.
+  start_address += channel;
+  // Read the bytes with the readRandomBytes method
+  _read_random_bytes(start_address, buffer, 2, restart);
+  // Construct the 16bit return value.
+  count_low = buffer[0];
+  count_high = buffer[1];
+  count_value = (uint16_t)(count_low);
+  count_value |= (uint16_t)(count_high<<8);
+  // Return the counts value.
+  return count_value;
+}
+
+/**
+ * @brief A method which reads and returns the Delta value of a specific channel.
+ *        For ch0         delta = LTA - ACF
+ *        For ch1 - ch6:  delta = ACF - REF
+ * @param channel     The enumerator which specifes which channel's Delta value to return.
+ * @param restart     Determines if the RESART or STOP bit is sent after the communication is done.
+ * @return uint16_t   Returns a 16 bit unsigned integer containing the Delta value of the channel.
+ */
+uint16_t iqs266_read_channel_delta(channel_t channel, bool restart) {
+  uint8_t buffer[2];         
+  uint8_t start_address = DELTA_CH0;  // The address of the first channel's Delta bytes, this address is adjusted according to the enum passed.
+  uint8_t delta_low = 0;                // Temporary storage for the Delta low byte.
+  uint8_t delta_high = 0;               // Temporary storage for the Delta high byte.
+  uint16_t delta_value = 0;             // The 16bit return value.
+
+  // Adjust the address according to the channel enum which was passed.
+  start_address += channel;
+  // Read the bytes with the readRandomBytes method
+  _read_random_bytes(start_address, buffer, 2, restart);
+  // Construct the 16bit return value.
+  delta_low = buffer[0];
+  delta_high = buffer[1];
+  delta_value = (uint16_t)(delta_low);
+  delta_value |= (uint16_t)(delta_high<<8);
+  // Return the Delta value.
+  return delta_value;  
+}
+
+/**
+ * @brief A method which reads and returns the Delta value of a specific channel.
+ * 
+ * @param channel     The enumerator which specifes which channel's Delta value to return.
+ * @param restart     Determines if the RESART or STOP bit is sent after the communication is done.
+ * @return uint16_t   Returns a 16 bit unsigned integer containing the Delta value of the channel.
+ */
+uint16_t iqs266_read_channel_lta(channel_t channel, bool restart) {
+  uint8_t buffer[2];       // A temporary array which will hold all the channel LTA low and high bytes.
+  uint8_t read_address = LTA_CH0;  // The address of the first channel's LTA bytes, this address is adjusted according to the enum passed.
+  uint8_t lta_low = 0;             // Temporary storage for the LTA low byte.
+  uint8_t lta_high = 0;            // Temporary storage for the LTA high byte.
+  uint16_t lta_value = 0;         // The 16bit return value.
+
+  // Adjust the address according to the channel enum which was passed.
+  read_address += channel;
+  // Read the bytes with the readRandomBytes method
+  _read_random_bytes(read_address, buffer, 2, restart);
+  // Construct the 16bit return value.
+  lta_low = buffer[0];
+  lta_high = buffer[1];
+  lta_value = (uint16_t)(lta_low);
+  lta_value |= (uint16_t)(lta_high<<8);
+  // Return the LTA value.
+  return lta_value;
+}
+
+
+/**
+ * @brief A function to set the Halt Timeout Time in seconds. This is done by setting.
+ * 
+ * @param timeout   The time in seconds to which the timeout must be set, ranging from 1 to 127, 0 disables halt timeout.
+ * @param restart   Determines if the RESART or STOP bit is sent after the communication is done.
+ */
+void iqs266_set_halt_timeout(uint8_t timeout, bool restart) {
+  // Map and constrain the haltTime argument.
+  if(timeout > 127)
+    timeout = 254;
+  else if(timeout < 1)
+    timeout = 1;
+  else
+    timeout += timeout;
+
+  // Now write the new halt timeout time value to the HALT_TIMEOUT register which is byte 0 at the TIMEOUT_PERIODS address.
+  _write_random_bytes(TIMEOUT_PERIODS, &timeout, 1, restart);
+}
+
+/**
+ * @brief A method which sets the low power mode report rate in increments of 16 milliseconds. 0 disables LP mode.
+ * 
+ * @param value     A value between 0 and 7. Normal power segment rate = 2^(segmentRate).
+ * @param restart   Determines if the RESART or STOP bit is sent after the communication is done.
+ */
+void iqs266_set_np_segment_rate(uint8_t value, bool restart) {
+  uint8_t buffer[1];
+
+	// Constrain the segment rate to a maximum value of 7..
+	if (value > 7)
+		value = 7;
+
+	// First read the PROXSETTINGS2 register in order not to change any settings.
+	_read_random_bytes(PROXSETTINGS_23, buffer, 1, true);
+	// First clear the lower 3 bytes of PROXSETTINGS2
+	buffer[0] &= 0xf8; // Preserve all bytes except lower 3.
+	// Set the lower 3 bytes to the segment rate value.
+	buffer[0] |= value;
+	// Write the new value to the PROXSETTINGS2 register.
+	_write_random_bytes(PROXSETTINGS_23, buffer, 1, restart);
+}
+
+/**
+ * @brief A method which sets the low power mode report rate in increments of 16 milliseconds. 0 disables LP mode.
+ * 
+ * @param value     A value between 0 and 255 which sets the low power report rate in milliseconds.
+ * @param restart   Determines if the RESART or STOP bit is sent after the communication is done.
+ */
+void iqs266_set_report_rate_lp(uint8_t value, bool restart) {
+  uint8_t buffer[2];
+
+	// First read the 1st byte at the REPORT_RATES address in order not to change the report rate for normal mode.
+	_read_random_bytes(REPORT_RATES, buffer, 1,  true);
+	// Set the report rate for the low power mode.
+	buffer[1] = value;
+	// Now write all the bytes back to the REPORT_RATES address.
+	_write_random_bytes(REPORT_RATES, buffer, 2, restart);
+}
+
+/**
+ * @brief A method which sets the normal mode report rate in milliseconds.
+ * 
+ * @param value     A value between 0 and 255 which sets the normal mode report rate in milliseconds.
+ * @param restart   Determines if the RESART or STOP bit is sent after the communication is done.
+ */
+void iqs266_set_report_rate_nm(uint8_t value, bool restart) {
+	// No need to read any information since we are just over-writing a value into the first byte at the address.
+	// Write the byte into the REPORT_RATES address.
+	_write_random_bytes(REPORT_RATES, &value, 1, restart);
+}
+
+/**
+ * @brief A method which sets the zoom timeout time. This is the time which the device will stay in normal power mode with no activity.
+ * 			  When the timeout value is reached the device will enter low power mode.
+ * 
+ * @param timeout   A value between 0 and 255 which specifies the timeout time in 500ms increments.
+ * @param restart   Determines if the RESART or STOP bit is sent after the communication is done.
+ */
+void iqs266_set_zoom_timeout(uint8_t timeout, bool restart) {
+  uint8_t buffer[2];	// Temporary array which holds the bytes to be transferred.
+
+	// First read the 1st byte at the EVENT_MASK address in order not to change the event mask.
+	_read_random_bytes(EVENT_MASK, buffer, 1, true);
+	// Set the ZOOM_TIMEOUT register, byte 1, to the required value.
+	buffer[1] = timeout;
+	// Now write all the bytes back to the EVENT_MASK address.
+	_write_random_bytes(EVENT_MASK, buffer, 2, restart);
+}
+
+/**
+ * @brief A method which sets the ATI target for the touch channels (CH_1 to CH_6). This value is multiplied by 8 for the actual counts target.
+ * 
+ * @param value     An 8 bit value which specifies the touch ATI target in increments of 8. Eg. Value = 80, TATI Target = 80 x 8 = 640.
+ * @param restart   Determines if the RESART or STOP bit is sent after the communication is done.
+ */
+void iqs266_set_touch_ati_target(uint8_t value, bool restart) {
+  // No need to read any information since we are just over-writing a value into the first byte at the address.
+	// Write the byte into the ATI_TARGETS address.
+	_write_random_bytes(ATI_TARGETS, &value, 1, restart);
+}
+
+/**
+ * @brief A method which sets the base value for channels 1 to 6 which are the touch channels.
+ * 
+ * @param value     A value between 0 and 15, both inclusive, which sets the base value in increments of 16 ranging from 74 to 314.
+ * 						      See the IQS266 datasheet to make the correct selection.
+ * @param restart   Determines if the RESART or STOP bit is sent after the communication is done.
+ */
+void iqs266_set_touch_base_value(uint8_t value, bool restart) {
+	uint8_t buffer[1];
+
+	// Constrain the base value to a maximum value of 15.
+	if (value > 15)
+		value = 15;
+	// Shift the base value to the upper 4 bytes.
+	value = (value << 4);
+
+	// First read the byte in order not to change the base value for the touch channels.
+	_read_random_bytes(CHANNEL_SETTINGS, buffer, 1, true);
+	// Set the base value for the prox channel.
+	buffer[0] &= 0x0F; // Preserve the lower 4 bytes, clear the upper 4 bytes.
+	buffer[0] |= value;
+	// Now write the new value to the register address.
+	_write_random_bytes(CHANNEL_SETTINGS, buffer, 1, restart);
+}
+
+/**
  * @brief A method which sets the touch threshold on a specified channel or all channels, thereby adjusting the 
  *        sensitivity of the channel. The Prox threshold for channel 0 is not altered at all.
  * 
@@ -220,18 +429,129 @@ void iqs266_set_proximate_sensitivity(uint8_t sensitivity, bool restart) {
   _write_random_bytes(THRESHOLDS_CH0, buffer, 1, restart);
 }
 
+/**
+ * @brief A method which sets the maximum time allowed for a Tap gesture. The gesture must occur in less time than this setting to be valid.
+ * 
+ * @param timeout   A value from 0 to 255 which specifies the Tap timer limit in 2 millsecond increments.
+ * @param restart   Determines if the RESART or STOP bit is sent after the communication is done.
+ */
+void iqs266_set_tap_timeout(uint8_t timeout, bool restart) {
+  uint8_t buffer[1];
+
+  // Adjust the time value to a value between 0 and 255.
+  if(timeout >= 255)
+    timeout = 255;
+  else if (timeout <=0)
+    timeout = 0;
+
+  // Store the time limit to the byte which will be transferred.
+  buffer[0] = timeout;
+  // Write the time limit to the correct address.
+  _write_random_bytes(TAP_SETTINGS, buffer, 1, restart);
+}
+
+/**
+ * @brief A method which sets the maximum coordinate length of a square area on the trackpad for Tap gesture. Exceeding this length will not recognise a Tap gesture.
+ * 
+ * @param threshold   A value from 0 to 255 which specifies the coordinate length of the maximum square area.
+ * @param restart     Determines if the RESART or STOP bit is sent after the communication is done.
+ */
+void iqs266_set_tap_threshold(uint8_t threshold, bool restart) {
+  uint8_t buffer[2];
+
+  // Clamp the value within 0 - 255
+  if(threshold >= 255)
+    threshold = 255;
+  else if (threshold <=0)
+    threshold = 0;
+
+  // First read the Tap Timer Limit in order not to overwrite it, this will be stored in buffer[0].
+  _read_random_bytes(TAP_SETTINGS, buffer, 1, true);
+  // Store the the threshold to the second byte which will be transferred.
+  buffer[1] = threshold;
+  // Write the tap settings bytes to the correct address.
+  _write_random_bytes(TAP_SETTINGS, buffer, 2, false);
+}
+
+/**
+ * @brief A method which sets the maximum time allowed for a Swipe gesture. The gesture must occur in less time than this setting to be valid.
+ * 
+ * @param timeout   A value from 0 to 510 which specifies the Swipe timer limit in 2 millsecond increments.
+ * @param restart   Determines if the RESART or STOP bit is sent after the communication is done.
+ */
+void iqs266_set_swipe_timeout(uint8_t timeout, bool restart) {
+  uint8_t buffer[1];
+
+  // Adjust the time value to a value between 0 and 255.
+  if(timeout >= 255)
+    timeout = 255;
+  else if (timeout <=0)
+    timeout = 0;
+
+  // Store the time limit to the byte which will be transferred.
+  buffer[0] = timeout;
+  // Write the time limit to the correct address.
+  _write_random_bytes(SWIPE_SETTINGS, buffer, 1, restart);
+}
+
+/**
+ * @brief A method which sets the minimum coordinate length on the trackpad for Swipe gesture. Swiping for less than the specified threshold will not recognise a Swipe gesture.
+ * 
+ * @param threshold   A value from 0 to 255 which specifies the minimum swipe coordinate length.
+ * @param restart     Determines if the RESART or STOP bit is sent after the communication is done.
+ */
+void iqs266_set_swipe_threshold(uint8_t threshold, bool restart) {
+  uint8_t buffer[2];
+
+  // Adjust the time value to a value between 0 and 255.
+  if(threshold >= 255)
+    threshold = 255;
+  else if (threshold <=0)
+    threshold = 0;
+
+  // First read the Swipe Timer Limit in order not to overwrite it, this will be stored in buffer[0].
+  readRandomBytes(SWIPE_SETTINGS, buffer, 1, true);
+  // Store the the threshold to the second byte which will be transferred.
+  buffer[1] = threshold;
+  // Write the Swipe settings bytes to the correct address.
+  writeRandomBytes(SWIPE_SETTINGS, buffer, 2, restart);
+}
+
+
+/**
+ * @brief This function enables corresponding events based on the input event bits.
+ * 
+ * @param event_bits  The event bits that determine which events are being enabled.
+ * @param restart     Determines if the RESART or STOP bit is sent after the communication is done.
+ */
 void iqs266_enable_events(uint8_t event_bits, bool restart) {
   _set_event_mask_bits(event_bits, restart);
 }
 
+/**
+ * @brief This function enables all events.
+ * 
+ * @param restart     Determines if the RESART or STOP bit is sent after the communication is done.
+ */
 void iqs266_enable_all_events(bool restart) {
   _set_event_mask_bits(0xff, restart);
 }
 
+/**
+ * @brief This function disables corresponding events based on the input event bits.
+ * 
+ * @param event_bits  The event bits that determine which events are being disabled.
+ * @param restart     Determines if the RESART or STOP bit is sent after the communication is done.
+ */
 void iqs266_disable_events(uint8_t event_bits, bool restart) {
   _clear_event_mask_bits(event_bits, restart);
 }
 
+/**
+ * @brief This function disables all events.
+ * 
+ * @param restart     Determines if the RESART or STOP bit is sent after the communication is done.
+ */
 void iqs266_disable_all_events(bool restart) {
   _clear_event_mask_bits(0xff, restart);
 }

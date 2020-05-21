@@ -1,5 +1,25 @@
 #include "touch.h"
 
+
+void touch_init() {
+  iqs266_init();
+
+  // Must successfully request the communication window first.
+  while(!iqs266_request_communication());
+  iqs266_clear_reset(true);
+  
+  // Set events
+  iqs266_enable_all_events(true);
+  iqs266_enable_events(SWIPE_EVENT_BIT | TAP_EVENT_BIT, true);
+
+  // Set zoom timeout
+  // Set touch parameters
+  // Set autotune.
+  iqs266_auto_tune(false);
+  
+}
+
+
 /* Some interrupt notes here */
 /* There are 16 interrupt lines line0 - line15 (EXTI lines)
  * These lines are corresponding to pin0 - pin15 in each GPIO group
