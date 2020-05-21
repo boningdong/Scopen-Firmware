@@ -36,6 +36,7 @@ BUILD_DIR = build
 ######################################
 # C sources
 C_SOURCES =  \
+Core/Src/periph/iqs266.c \
 Core/Src/periph/i2c.c \
 Core/Src/sram.c \
 Core/Src/afe.c \

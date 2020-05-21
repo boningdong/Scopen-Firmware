@@ -24,7 +24,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "sram.h"
-#include "touch.h"
+#include "periph/iqs266.h"
 #include "led.h"
 #include <stdio.h>
 #include "system.h"

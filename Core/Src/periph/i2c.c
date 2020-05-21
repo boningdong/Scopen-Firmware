@@ -15,14 +15,9 @@
 #include <stm32g4xx_ll_bus.h>
 #include <stm32g4xx_ll_i2c.h>
 
-/**
- * @brief Initialize the i2c3 interface on the board.
- *        Enable the auto-end mode and the clock stretching mode.
- * 
- * @return true   Initialization is successful.
- * @return false  Initialization failed.
- */
+
 ErrorStatus i2c3_init() {
+  printf("[LOG] Initializing I2C3 ...\n");
   // Initialize GPIO
   LL_AHB2_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOC);
   LL_GPIO_InitTypeDef io_config;
@@ -52,34 +47,29 @@ ErrorStatus i2c3_init() {
   LL_I2C_EnableClockStretching(I2C3);
   LL_I2C_DisableOwnAddress2(I2C3);
   LL_I2C_DisableGeneralCall(I2C3);
+  
+  printf("[LOG] Successfully initialized I2C3.\n");
   return SUCCESS;
 }
 
-/**
- * @brief Read the continuos n registers values in the target device, starting from the register address specified.
- * 
- * @param device    7 bit target device address.
- * @param address   The starting register address.
- * @param buffer    Receiving buffer used for accepting the read result.
- * @param size      The byte numbers of values to be read.
- * @param restart   End the conversation with STOP or another START flag to restart.
- */
+
 ErrorStatus i2c3_random_read(const uint16_t device, const uint8_t address, uint8_t* buffer, uint16_t size, bool restart) {
   if (buffer == NULL)
     return ERROR;
 
+  // Timer used for timeout
+  uint32_t timer = 0;
   // Address the register location
   // Use reload because the write sequence is not stoped.
   // Generate the start write signal to start the transmission.
   LL_I2C_HandleTransfer(I2C3, device << 1, LL_I2C_ADDRSLAVE_7BIT, 1, LL_I2C_MODE_SOFTEND, LL_I2C_GENERATE_START_WRITE);
   
-  // TODO: Change the following while loops to support timeout.
-  while(!LL_I2C_IsActiveFlag_TXIS(I2C3));
-
+  // Make sure the tranmission register is empty.
+  WAIT_CONDITION(LL_I2C_IsActiveFlag_TXIS(I2C3), 100, timer, return ERROR);
   LL_I2C_TransmitData8(I2C3, address);
-  // TODO: Change the following while loops to support timeout.
-  while(!LL_I2C_IsActiveFlag_TC(I2C3));
 
+  // Assert the tranmission is done.
+  WAIT_CONDITION(LL_I2C_IsActiveFlag_TC(I2C3), 100, timer, return ERROR);
   // Start read condition
   uint32_t end_mode;
   end_mode = size > NBYTES_MAX ? LL_I2C_MODE_RELOAD : restart ? LL_I2C_MODE_SOFTEND : LL_I2C_MODE_AUTOEND;
@@ -88,78 +78,67 @@ ErrorStatus i2c3_random_read(const uint16_t device, const uint8_t address, uint8
   do {
       while (size % (NBYTES_MAX + 1)) {
           // Receive data byte
-          while(!LL_I2C_IsActiveFlag_RXNE(I2C3));
+          WAIT_CONDITION(LL_I2C_IsActiveFlag_RXNE(I2C3), 100, timer, return ERROR);
           *buffer++ = LL_I2C_ReceiveData8(I2C3);
           size--;
       }
       // Wait for bulk transaction completion if not generating a stop condition
       if (size) {
-          while(!LL_I2C_IsActiveFlag_TCR(I2C3));
+          WAIT_CONDITION(LL_I2C_IsActiveFlag_TCR(I2C3), 100, timer, return ERROR);
           // Reload NBYTES or last transaction and configure auto stop condition
           end_mode = size > NBYTES_MAX ? LL_I2C_MODE_RELOAD : restart ? LL_I2C_MODE_SOFTEND : LL_I2C_MODE_AUTOEND;
           LL_I2C_HandleTransfer(I2C3, device << 1, LL_I2C_ADDRSLAVE_7BIT, size > NBYTES_MAX ? NBYTES_MAX : size, end_mode, LL_I2C_GENERATE_NOSTARTSTOP);
       }
   } while (size);
 
-  // Wait for stop condition
+  // Check if need to continue the transmission
   if (restart) {
-    while(!LL_I2C_IsActiveFlag_TC(I2C3));
+    WAIT_CONDITION(LL_I2C_IsActiveFlag_TC(I2C3), 100, timer, return ERROR);
   } else {
-    while(!LL_I2C_IsActiveFlag_STOP(I2C3));
+    WAIT_CONDITION(LL_I2C_IsActiveFlag_STOP(I2C3), 100, timer, return ERROR);
     LL_I2C_ClearFlag_STOP(I2C3);
   }
 
   return SUCCESS;
 }
 
-/**
- * @brief Write continuous n bytes to the registers to the target device synchronically, starting form the register address specified.  
- * 
- * @param device        7 bit target device address.
- * @param address       The starting register address.
- * @param buffer        Transmit buffer that holds the data to be transferred.
- * @param size          Number of byte to be transferred.
- * @param restart       End the conversation with STOP or another START flag to restart.
- * @return ErrorStatus  Return SUCCESS if it successfully runs. Ruturn ERROR if it's not.
- */
+
 ErrorStatus i2c3_random_write(const uint16_t device, const uint8_t address, const uint8_t* buffer, uint16_t size, bool restart) {
   if (buffer == NULL)
     return ERROR;
   
+  // Timer used for timeout
+  uint32_t timer = 0;
   // Address the register location
   // Use reload because the write sequence is not stoped.
   // Generate the start write signal to start the transmission.
   LL_I2C_HandleTransfer(I2C3, device << 1, LL_I2C_ADDRSLAVE_7BIT, 1, LL_I2C_MODE_RELOAD, LL_I2C_GENERATE_START_WRITE);
 
-  // TODO: Change the following while loops to support timeout.
-  while(!LL_I2C_IsActiveFlag_TXIS(I2C3));
-
+  // Make sure the tranmission register is empty.
+  WAIT_CONDITION(LL_I2C_IsActiveFlag_TXIS(I2C3), DEFAULT_TIMEOUT, timer, return ERROR);
   LL_I2C_TransmitData8(I2C3, address);
-  // TODO: Change the following while loops to support timeout.
-  while(!LL_I2C_IsActiveFlag_TCR(I2C3));
 
+  WAIT_CONDITION(LL_I2C_IsActiveFlag_TCR(I2C3), DEFAULT_TIMEOUT, timer, return ERROR);
   // Transmit the user data
   uint32_t end_mode;
   do {
     end_mode = size > NBYTES_MAX ? LL_I2C_MODE_RELOAD : restart ? LL_I2C_MODE_SOFTEND : LL_I2C_MODE_AUTOEND;
     LL_I2C_HandleTransfer(I2C3, device << 1, LL_I2C_ADDRSLAVE_7BIT, size > NBYTES_MAX ? NBYTES_MAX : size, end_mode, LL_I2C_GENERATE_NOSTARTSTOP);
     while (size % (NBYTES_MAX + 1)) {
-      // TODO: Change the following while loops to support timeout.
-      while(!LL_I2C_IsActiveFlag_TXIS(I2C3));
+      WAIT_CONDITION(LL_I2C_IsActiveFlag_TXIS(I2C3), DEFAULT_TIMEOUT, timer, return ERROR);
       LL_I2C_TransmitData8(I2C3, *buffer++);
       size --;
     }
     if (size) {
-      // TODO: Change the following while loops to support timeout.
-      while(!LL_I2C_IsActiveFlag_TCR(I2C3));
+      WAIT_CONDITION(LL_I2C_IsActiveFlag_TCR(I2C3), DEFAULT_TIMEOUT, timer, return ERROR);
     }
   } while(size);
 
-  // TODO: Change the following while loops to support timeout.
+  // Check if need to continue the transmission
   if (restart) {
-    while(!LL_I2C_IsActiveFlag_TC(I2C3));
+    WAIT_CONDITION(LL_I2C_IsActiveFlag_TC(I2C3), DEFAULT_TIMEOUT, timer, return ERROR);
   } else {
-    while(!LL_I2C_IsActiveFlag_STOP(I2C3));
+    WAIT_CONDITION(LL_I2C_IsActiveFlag_STOP(I2C3), DEFAULT_TIMEOUT, timer, return ERROR);
     LL_I2C_ClearFlag_STOP(I2C3);
   }
 
