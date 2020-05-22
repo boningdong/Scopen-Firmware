@@ -9,11 +9,13 @@
 
 const char *ssid = "Scopen";
 const char *password = "123456789";
-unsigned int port = 2333;
-
+//unsigned int port = 2333;
+const uint16_t port = 6000;
+const char * host = "192.168.4.2"; // ip or dns
 char package_buffer[256];
 char reply_buffer[] = "ACK";
-
+// Use WiFiClient class to create TCP connections
+WiFiClient client;
 
 WiFiMulti WiFiMulti;
 
@@ -40,6 +42,7 @@ void setup()
         delay(500);
     }*/
 
+    
 
     delay(500);
 }
@@ -49,52 +52,38 @@ void loop()
 {
 //    const uint16_t port = 80;
 //    const char * host = "192.168.1.1"; // ip or dns
-    const uint16_t port = 6000;
-    const char * host = "192.168.4.2"; // ip or dns
+   
 
+    // This will send a request to the server
+    //uncomment this line to send an arbitrary string to the server
+    //client.print("Send this data to the server");
+    //uncomment this line to send a basic document request to the server
+
+  
     Serial.print("Connecting to ");
     Serial.println(host);
-
-    // Use WiFiClient class to create TCP connections
-    WiFiClient client;
-
     if (!client.connect(host, port)) {
         Serial.println("Connection failed.");
         Serial.println("Waiting 5 seconds before retrying...");
         delay(5000);
         return;
     }
+    while(client.connected()){
+      if (client.available())
+      {
+        Serial.println("available");
+        //read back one line from the server
+        String line = client.readString();
+        Serial.println(line);
+      }
+      
+      client.write(host);
+      client.write('\n');
+      client.flush();
+      Serial.println("Wrote to server");
 
-    // This will send a request to the server
-    //uncomment this line to send an arbitrary string to the server
-    //client.print("Send this data to the server");
-    //uncomment this line to send a basic document request to the server
-    client.print("GET /index.html HTTP/1.1\n\n");
-
-  int maxloops = 0;
-
-  //wait for the server's reply to become available
-  while (!client.available() && maxloops < 1000)
-  {
-    maxloops++;
-    delay(1); //delay 1 msec
-  }
-  if (client.available() > 0)
-  {
-    //read back one line from the server
-    String line = client.readStringUntil('\r');
-    Serial.println(line);
-  }
-  else
-  {
-    Serial.println("client.available() timed out ");
-  }
-
-    Serial.println("Closing connection.");
-    client.stop();
-
-    Serial.println("Waiting 5 seconds before restarting...");
-    delay(5000);
+      delay(5000);
+    }
 }
 
 void wifi_event_handler(WiFiEvent_t event)
