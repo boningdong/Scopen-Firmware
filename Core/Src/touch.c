@@ -1,78 +1,97 @@
 #include "touch.h"
+#include "main.h"
+#include <stdio.h>
+#include <stm32g4xx_ll_bus.h>
+#include <stm32g4xx_ll_exti.h>
+#include <stm32g4xx_ll_gpio.h>
 
 
+/**
+ * @brief Initialize and configure the touch sensor on this board.
+ * 
+ */
 void touch_init() {
+  uint8_t device_number;
   iqs266_init();
 
   // Must successfully request the communication window first.
   while(!iqs266_request_communication());
+
   iqs266_clear_reset(true);
+  device_number = iqs266_read_device_info(true);
   
+  // Set low power and normal power parameters.
+  iqs266_set_report_rate_lp(0, true);
+  iqs266_set_report_rate_nm(6, true);
+
   // Set events
-  iqs266_enable_all_events(true);
+  iqs266_disable_halt_timeout(true);
+  iqs266_event_mode(true);
+  iqs266_disable_all_events(true);
   iqs266_enable_events(SWIPE_EVENT_BIT | TAP_EVENT_BIT, true);
 
   // Set zoom timeout
+  iqs266_set_zoom_timeout(50, true);  
+  // Disable proximate
+  iqs266_disable_channel(CH0, true);
+
   // Set touch parameters
+  iqs266_set_touch_base_value(3, true);
+  iqs266_set_touch_ati_target(35, true);
+  iqs266_set_touch_sensitivity(ALL, 45, true);
+  // Set tap parameters.
+  iqs266_set_tap_timeout(75, true);
+  iqs266_set_tap_threshold(35, true);
+  // Set swipe parameters
+  iqs266_set_swipe_timeout(150, true);
+  iqs266_set_swipe_threshold(20, true);
   // Set autotune.
   iqs266_auto_tune(false);
-  
-}
-
-
-/* Some interrupt notes here */
-/* There are 16 interrupt lines line0 - line15 (EXTI lines)
- * These lines are corresponding to pin0 - pin15 in each GPIO group
- * All pinX connected to lineX a multiplexed manner
- * Corresponding line will trigger corresponding EXTI_IRQ function
- * ex: PA1 interrupt will trigger EXTI1_IRQHandler function.
- */
-
-// FIXME Delete this part for testing
-void user_button_init() {
-  // configure the user button to be interrupt mode.
-  // user button pc13
-
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOC_CLK_ENABLE();
-
-  // Hal method to configure the gpio
-  // GPIO_InitTypeDef gpioConfig = {0};
-  // gpioConfig.Mode = GPIO_MODE_IT_RISING;
-  // gpioConfig.Pull = GPIO_NOPULL;
-  // gpioConfig.Speed = GPIO_SPEED_MEDIUM;
-  // gpioConfig.Pin = GPIO_PIN_13;
-  // HAL_GPIO_Init(GPIOC, &gpioConfig);
-
-  GPIO_InitTypeDef ledConfig = {0};
-  ledConfig.Mode = GPIO_MODE_OUTPUT_PP;
-  ledConfig.Pull = GPIO_PULLDOWN;
-  ledConfig.Speed = GPIO_SPEED_MEDIUM;
-  ledConfig.Pin = GPIO_PIN_5;
-  HAL_GPIO_Init(GPIOA, &ledConfig);
-
-  // configure GPIO port
-  GPIO_TypeDef *gpioc = GPIOC;
-  gpioc->MODER &= ~(GPIO_MODER_MODE13_0 | GPIO_MODER_MODE13_1);
-  gpioc->PUPDR &= ~(GPIO_PUPDR_PUPDR13_0 | GPIO_PUPDR_PUPDR13_1);
-  // configure interrupt mode
-  EXTI_TypeDef *exti = EXTI;
-  // Disable the mask (mask will mask out the interrupt trigger)
-  exti->IMR1 |= EXTI_IMR1_IM13;
-  // Configure the rising edge trigger.
-  exti->RTSR1 |= EXTI_RTSR1_RT13;
-  // Enable the correponding interrupt in NVIC
-  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 3, 0);
-  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+  // Delay 100ms to make sure the system is ready.
+  printf("Done Initializing the touch sensor.\n");
+  HAL_Delay(100);
+  iqs266_init_ready_interrupt();
 }
 
 /**
  * @brief Touch communication interrupt trigger. This will be triggered if there is an event.
  * 
  */
-// void EXTI15_10_IRQHandler(void) {
-//   // Done something
-//   if (HAL_GPIO_ReadPin(RDY_GROUP, RDY_PIN) == GPIO_PIN_RESET) {
-//     printf("RDY pin low interrupt is triggered\n");
-//   }
-// }
+void EXTI15_10_IRQHandler(void) {
+  // Check if this interrupt is caused by the touch sensor.
+  if (HAL_GPIO_ReadPin(GPIO_RDY_GROUP, GPIO_RDY_PIN) == GPIO_PIN_RESET) {
+    // Disable interrupt.
+    iqs266_disable_rdy_interrupt();
+
+    // Creating the flags to hold the events.
+    uint8_t x, y;
+    event_flags_t events = {0};
+    trackpad_flags_t gestures = {0};
+    // Reading the flags to determine what triggers the interrput.
+    events.flagByte = iqs266_read_events(true);
+    gestures.flagByte = iqs266_read_gestures(true);
+    
+    x = iqs266_read_x(true);
+    y = iqs266_read_y(false);
+    printf("x: %u    y: %u\n", x, y);
+    
+    if(events.tap) {
+      if (gestures.tap)
+        printf("Tap\n");
+    } else if(events.swipe) {
+      if (gestures.swipeUp)
+        printf("swapUp\n");
+      else if (gestures.swipeDown)
+        printf("SwapDown\n");
+      else if (gestures.swipeLeft)
+        printf("SwipeLeft\n");
+      else if (gestures.swipeRight)
+        printf("SwipeRight\n");
+    }
+
+    // Enable interrupt again.
+    iqs266_enable_rdy_interrupt();
+  }
+  LL_EXTI_ClearFlag_0_31(EXTI_LINE_10);
+  NVIC_ClearPendingIRQ(EXTI15_10_IRQn);
+}

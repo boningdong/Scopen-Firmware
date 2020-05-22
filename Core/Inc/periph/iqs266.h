@@ -80,10 +80,15 @@ void user_button_init();
 /*******************************************************************************
                       			IQS266 - API Functions
 *******************************************************************************/
+
 void iqs266_init();
+void iqs266_init_ready_interrupt();
+void iqs266_disable_rdy_interrupt();
+void iqs266_enable_rdy_interrupt();
 bool iqs266_request_communication();
 bool iqs266_wait_ready();
 void iqs266_clear_reset(bool restart);
+void iqs266_disable_wdt(bool restart);
 void iqs266_auto_tune(bool restart);
 void iqs266_event_mode(bool restart);
 void iqs266_enable_events(uint8_t event_bits, bool restart);
@@ -93,9 +98,11 @@ void iqs266_disable_all_events(bool restart);
 void iqs266_enable_channel(channel_t channel, bool restart);
 void iqs266_disable_channel(channel_t channel, bool restart);
 void iqs266_set_halt_timeout(uint8_t timeout, bool restart);
+void iqs266_disable_halt_timeout(bool restart);
 void iqs266_set_np_segment_rate(uint8_t value, bool restart);
 void iqs266_set_report_rate_lp(uint8_t value, bool restart);
 void iqs266_set_report_rate_nm(uint8_t value, bool restart);
+void iqs266_set_clear_tp_flags(bool restart);
 void iqs266_set_zoom_timeout(uint8_t timeout, bool restart);
 void iqs266_set_touch_ati_target(uint8_t value, bool restart);
 void iqs266_set_touch_base_value(uint8_t value, bool restart);
@@ -107,12 +114,15 @@ void iqs266_set_swipe_timeout(uint8_t timeout, bool restart);
 void iqs266_set_swipe_threshold(uint8_t threshold, bool restart);
 
 
+uint8_t iqs266_read_device_info(bool restart);
 uint8_t iqs266_read_system_flags(bool restart);
 uint8_t iqs266_read_trackpad_flags(bool restart);
 uint8_t iqs266_read_events(bool restart);
 uint8_t iqs266_read_gestures(bool restart);
 uint8_t iqs266_read_approximate(bool restart);
 uint8_t iqs266_read_touch(bool restart);
+uint8_t iqs266_read_x(bool restart);
+uint8_t iqs266_read_y(bool restart);
 uint8_t iqs266_read_channels(bool restart);
 uint16_t iqs266_read_channel_counts(channel_t channel, bool restart);
 uint16_t iqs266_read_channel_delta(channel_t channel, bool restart);
@@ -212,5 +222,7 @@ uint16_t iqs266_read_channel_lta(channel_t channel, bool restart);
 #define ACK_RESET_BIT		0x80
 #define REDO_ATI_BIT        0x10
 #define EVENT_MODE_BIT      0x40
+#define WDT_DISABLE_BIT		0x80
+#define TP_CLEAR_BIT 		0x03
 
 #endif

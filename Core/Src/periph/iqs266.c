@@ -5,6 +5,7 @@
 #include "periph/i2c.h"
 #include <stm32g4xx_ll_bus.h>
 #include <stm32g4xx_ll_gpio.h>
+#include <stm32g4xx_ll_exti.h>
 
 system_flags_t system_flags;
 trackpad_flags_t trackpad_flags;
@@ -17,8 +18,6 @@ EXTI_TypeDef *exti = EXTI;
 // Static function declarations
 static void _set_ready_output();
 static void _set_ready_input();
-static void _disable_ready_interrupt();
-static void _enable_ready_interrupt();
 static void _toggle_ready();
 static void _read_random_bytes(uint16_t address, uint8_t buffer[], uint16_t size, bool restart);
 static void _write_random_bytes(uint16_t address, uint8_t buffer[], uint16_t size, bool restart);
@@ -29,6 +28,39 @@ static void _clear_event_mask_bits(uint8_t mask_bit, bool restart);
 /*******************************************************************************
                       			IQS266 - API Functions
 *******************************************************************************/
+
+/**
+ * @brief Initialize the RDY pin interrupt for receiving events.
+ * 
+ */
+void iqs266_init_ready_interrupt() {
+  LL_EXTI_InitTypeDef exti_config = {0};
+  exti_config.Line_0_31 = GPIO_RDY_PIN;
+  exti_config.LineCommand = ENABLE;
+  exti_config.Mode = LL_EXTI_MODE_IT;
+  exti_config.Trigger = LL_EXTI_TRIGGER_FALLING;
+  LL_EXTI_Init(&exti_config);
+
+  NVIC_SetPriority(EXTI15_10_IRQn, 0);
+  NVIC_EnableIRQ(EXTI15_10_IRQn);
+}
+
+/**
+ * @brief Enable the event interrupt.
+ * @note  This function is platform specific.
+ * 
+ */
+void iqs266_disable_rdy_interrupt() {
+  LL_EXTI_DisableFallingTrig_0_31(GPIO_RDY_PIN);
+}
+
+/**
+ * @brief Disable the event interrupt.
+ * @note  This function is platform specific.
+ */
+void iqs266_enable_rdy_interrupt() {
+  LL_EXTI_EnableFallingTrig_0_31(GPIO_RDY_PIN);
+}
 
 /**
  * @brief Clear RESET bit by writing it to 0.
@@ -43,6 +75,19 @@ void iqs266_clear_reset(bool restart) {
   _read_random_bytes(PROXSETTINGS_23, buffer, 2, true);
   buffer[1] |= ACK_RESET_BIT;
   _write_random_bytes(PROXSETTINGS_23, buffer, 2, restart);
+}
+
+/**
+ * @brief A function turns off the communication watch dog timer. This is useful if the chip restarts due
+ *        to the long communication time.
+ * 
+ * @param restart 
+ */
+void iqs266_disable_wdt(bool restart) {
+  uint8_t buffer[2] = {0};
+  _read_random_bytes(PROXSETTINGS_01, buffer, 2, true);
+  buffer[1] |= WDT_DISABLE_BIT;
+  _write_random_bytes(PROXSETTINGS_01, buffer, 2, restart);
 }
 
 /**
@@ -74,6 +119,18 @@ void iqs266_event_mode(bool restart) {
   buffer[1] |= EVENT_MODE_BIT;
   // Write the bytes back to the device
   _write_random_bytes(PROXSETTINGS_01, buffer, 2, restart);
+}
+
+/**
+ * @brief A function the reads the device info.
+ * 
+ * @param restart 
+ * @return uint8_t An unsigned char containing the product number. Should be 0x4a (74).
+ */
+uint8_t iqs266_read_device_info(bool restart) {
+  uint8_t buffer[2];
+  _read_random_bytes(DEVICE_INFO, buffer, 2, true);
+  return buffer[0];
 }
 
 /**
@@ -148,6 +205,34 @@ uint8_t iqs266_read_touch(bool restart) {
   uint8_t buffer[2];
   _read_random_bytes(CHANNEL_BYTES, buffer, 2, restart);
   // The touch info is in the second byte.
+  return buffer[1];
+}
+
+/**
+ * @brief A methodd which reads and returns the byte which holds the X-Coordinates of the touch taking place on the trackpad.
+ * 
+ * @param restart   Determines if the RESART or STOP bit is sent after the communication is done. 
+ * @return uint8_t  Returns the byte which contains the X-Cordinates flags.
+ */
+uint8_t iqs266_read_x(bool restart) {
+  uint8_t buffer[1];
+  // Read the byte using the readRandomByte method.
+  _read_random_bytes(COORDINATES, buffer, 1, restart);
+  //  Return the byte, the X_CURR byte is the first byte at the COORDINATES address.
+  return buffer[0];
+}
+
+/**
+ * @brief A methodd which reads and returns the byte which holds the Y-Coordinates of the touch taking place on the trackpad.
+ * 
+ * @param restart   Determines if the RESART or STOP bit is sent after the communication is done. 
+ * @return uint8_t  Returns the byte which contains the Y-Cordinates flags.
+ */
+uint8_t iqs266_read_y(bool restart) {
+  uint8_t buffer[2]; // The temporary address which will hold the bytes at the COORDINATES address.
+  // Read the bytes using the readRandomByte method.
+  _read_random_bytes(COORDINATES, buffer, 2, restart);
+  // Return the byte, the Y_CURR byte is the second byte at the COORDINATES address.
   return buffer[1];
 }
 
@@ -268,6 +353,19 @@ void iqs266_set_halt_timeout(uint8_t timeout, bool restart) {
 }
 
 /**
+ * @brief Function to disable halt timeout. 
+ * 
+ * @param restart   Determines if the RESART or STOP bit is sent after the communication is done.
+ */
+void iqs266_disable_halt_timeout(bool restart) {
+  // A value of 255 disables halt timeout.
+  uint8_t timeout = 255;
+
+  // Now write timeout value (255) to the HALT_TIMEOUT register which is byte 0 at the TIMEOUT_PERIODS address.
+  _write_random_bytes(TIMEOUT_PERIODS, &timeout, 1, restart);
+}
+
+/**
  * @brief A method which sets the low power mode report rate in increments of 16 milliseconds. 0 disables LP mode.
  * 
  * @param value     A value between 0 and 7. Normal power segment rate = 2^(segmentRate).
@@ -317,6 +415,18 @@ void iqs266_set_report_rate_nm(uint8_t value, bool restart) {
 	// No need to read any information since we are just over-writing a value into the first byte at the address.
 	// Write the byte into the REPORT_RATES address.
 	_write_random_bytes(REPORT_RATES, &value, 1, restart);
+}
+
+/**
+ * @brief A method that will let the iqs266 clear the event flags after each communication window.
+ * 
+ * @param restart   Determines if the RESART or STOP bit is sent after the communication is done.
+ */
+void iqs266_set_clear_tp_flags(bool restart) {
+  uint8_t buffer[2];
+  _read_random_bytes(PROXSETTINGS_23, buffer, 2, true);
+  buffer[0] != TP_CLEAR_BIT;
+  _write_random_bytes(PROXSETTINGS_23, buffer, 2, restart);
 }
 
 /**
@@ -394,6 +504,8 @@ void iqs266_set_touch_sensitivity(channel_t channel, uint8_t sensitivity, bool r
       address = TOUCH_THR_CH3_CH4; break;
     case CH5: case CH6:
       address = TOUCH_THR_CH5_CH6; break;
+    default:
+      return;
   }
 
   // Read bytes into the buffer to maintain the other channels sensitivity
@@ -470,7 +582,7 @@ void iqs266_set_tap_threshold(uint8_t threshold, bool restart) {
   // Store the the threshold to the second byte which will be transferred.
   buffer[1] = threshold;
   // Write the tap settings bytes to the correct address.
-  _write_random_bytes(TAP_SETTINGS, buffer, 2, false);
+  _write_random_bytes(TAP_SETTINGS, buffer, 2, restart);
 }
 
 /**
@@ -510,11 +622,11 @@ void iqs266_set_swipe_threshold(uint8_t threshold, bool restart) {
     threshold = 0;
 
   // First read the Swipe Timer Limit in order not to overwrite it, this will be stored in buffer[0].
-  readRandomBytes(SWIPE_SETTINGS, buffer, 1, true);
+  _read_random_bytes(SWIPE_SETTINGS, buffer, 1, true);
   // Store the the threshold to the second byte which will be transferred.
   buffer[1] = threshold;
   // Write the Swipe settings bytes to the correct address.
-  writeRandomBytes(SWIPE_SETTINGS, buffer, 2, restart);
+  _write_random_bytes(SWIPE_SETTINGS, buffer, 2, restart);
 }
 
 
@@ -598,7 +710,7 @@ void iqs266_disable_channel(channel_t channel, bool restart) {
  * @param restart   Determines if the RESART or STOP bit is sent after the communication is done.
  */
 static void _set_event_mask_bits(uint8_t bit_mask, bool restart) {
-  uint8_t buffer[1]; // Array which will hold the bytes read and written.
+  uint8_t buffer[1] = {0}; // Array which will hold the bytes read and written.
   
   // First read the previous settings into the array, keep communication open.
   _read_random_bytes(EVENT_MASK, buffer, 1, true);
@@ -647,15 +759,10 @@ void iqs266_init() {
   io_config.Speed = LL_GPIO_SPEED_FREQ_HIGH;
   LL_GPIO_Init(GPIO_RDY_GROUP, &io_config);
 
-  _disable_ready_interrupt();  
-  // enable HAL_NVIC
-  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 3, 0);
-  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
-
   // Initialize I2C interface.
   i2c3_init();
   
-  if (iqs266_request_communication()) {
+  while (!iqs266_request_communication()) {
     iqs266_clear_reset(true);
     iqs266_read_events(false);
   }
@@ -727,24 +834,6 @@ static void _set_ready_input() {
   ready_ports->MODER &= ~(3UL << GPIO_RDY_PIN_NUM * 2);
 }
 
-/**
- * @brief Enable the event interrupt.
- * @note  This function is platform specific.
- * 
- */
-static void _disable_ready_interrupt() {
-  exti->IMR1 &= ~(1UL << GPIO_RDY_PIN_NUM);
-  exti->FTSR1 &= ~(1UL << GPIO_RDY_PIN_NUM);
-}
-
-/**
- * @brief Disable the event interrupt.
- * @note  This function is platform specific.
- */
-static void _enable_ready_interrupt() {
-  exti->IMR1 |= 1UL << GPIO_RDY_PIN_NUM;
-  exti->FTSR1 |= 1UL << GPIO_RDY_PIN_NUM;
-}
 
 /**
  * @brief Generate a falling edge to request a communication window.
@@ -770,7 +859,7 @@ static void _toggle_ready() {
  */
 static void _read_random_bytes(uint16_t address, uint8_t buffer[], uint16_t size, bool restart) {
   // HAL_StatusTypeDef status = HAL_I2C_Mem_Read(&hi2c3, IQS266_ADDRESS << 1, address, 1, buffer, size, 200);
-  ErrorStatus status = i2c3_random_read(IQS266_ADDRESS, address, buffer, 1, restart);
+  ErrorStatus status = i2c3_random_read(IQS266_ADDRESS, address, buffer, size, restart);
   if (status == ERROR)
     printf("read random bytes failed.\n");
 }

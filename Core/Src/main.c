@@ -24,11 +24,11 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "sram.h"
-#include "periph/iqs266.h"
+#include "touch.h"
 #include "led.h"
 #include <stdio.h>
 #include "system.h"
-#include "system.h"
+#include "periph/iqs266.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -119,7 +119,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   led_init();
-  iqs266_init();
+  touch_init();
   system_init_interfaces();
 
   /* USER CODE END 2 */
@@ -128,10 +128,17 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */
-    HAL_GPIO_TogglePin(GPIO_LED_GROUP, GPIO_LED_RED_PIN);
-    HAL_GPIO_TogglePin(GPIO_LED_GROUP, GPIO_LED_GREEN_PIN);
-    HAL_Delay(500);
+    // /* USER CODE END WHILE */
+    // uint16_t count, lta, delta;
+    // for(int i = CH0; i <= CH6; i++) {
+    //   while(!iqs266_request_communication());
+    //   count = iqs266_read_channel_counts(i, true);
+    //   delta = iqs266_read_channel_delta(i, true);
+    //   lta = iqs266_read_channel_lta(i, false);
+    //   printf("[CH%d] count: %u    lta: %u    delta: %u\n", i, count, lta, delta);
+    // }
+    // printf("\n");
+    // HAL_Delay(1000);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
