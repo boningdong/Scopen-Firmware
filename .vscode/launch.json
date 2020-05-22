@@ -18,6 +18,8 @@
                 "target/stm32g4x.cfg"                       // controller family
             ],
 
+            "svdFile": "STM32G474xx.svd",
+
             /* SWO configurations */
             "swoConfig": {
                 "enabled": true,
