@@ -6,84 +6,100 @@
 #include <WiFi.h>
 #include <WiFiMulti.h>
 #include <WiFiAP.h>
+#include <WiFiUdp.h>
 
+#define ARRAY_SIZE 400
+static const uint16_t SCAN_LISTEN_PORT = 4445;
+static const uint16_t SCAN_SEND_PORT = 4446;
+static const uint16_t TCP_PORT = 6000;
+static const char SCAN_MESSAGE[] = "SCOPEN_SCAN";
+String scan_send_msg = "<0x69|1|0x69|";
+IPAddress userIP;
+IPAddress penIP;
+uint8_t STATE = 0;
 const char *ssid = "Scopen";
 const char *password = "123456789";
-//unsigned int port = 2333;
-const uint16_t port = 6000;
-const char * host = "192.168.4.2"; // ip or dns
-char package_buffer[256];
-char reply_buffer[] = "ACK";
-// Use WiFiClient class to create TCP connections
-WiFiClient client;
+const char * host = "192.168.4.2"; // 
 
+WiFiUDP udp;
+WiFiServer server;
+WiFiClient client;
 WiFiMulti WiFiMulti;
+String line = "";
+uint8_t dataArray[ARRAY_SIZE];
 
 void setup()
 {
+    for(int i = 0; i < ARRAY_SIZE ; i++){
+      dataArray[i] = 121;
+    }
     Serial.begin(115200);
-    delay(10);
     Serial.println("Creating AP ...");
     WiFi.softAP(ssid, password);
-    IPAddress ip = WiFi.softAPIP();
+    penIP = WiFi.softAPIP();
     Serial.println("AP IP address: ");
-    Serial.println(ip);
+    Serial.println(penIP);
     WiFi.onEvent(wifi_event_handler);
-
-    // We start by connecting to a WiFi network
-    /*WiFiMulti.addAP("SSID", "passpasspass");
-
-    Serial.println();
-    Serial.println();
-    Serial.print("Waiting for WiFi... ");
-
-    while(WiFiMulti.run() != WL_CONNECTED) {
-        Serial.print(".");
-        delay(500);
-    }*/
-
-    
-
+    udp.begin(SCAN_LISTEN_PORT);
     delay(500);
 }
 
 
 void loop()
 {
-//    const uint16_t port = 80;
-//    const char * host = "192.168.1.1"; // ip or dns
-   
-
-    // This will send a request to the server
-    //uncomment this line to send an arbitrary string to the server
-    //client.print("Send this data to the server");
-    //uncomment this line to send a basic document request to the server
-
-  
-    Serial.print("Connecting to ");
-    Serial.println(host);
-    if (!client.connect(host, port)) {
-        Serial.println("Connection failed.");
-        Serial.println("Waiting 5 seconds before retrying...");
-        delay(5000);
-        return;
-    }
-    while(client.connected()){
-      if (client.available())
-      {
-        Serial.println("available");
-        //read back one line from the server
-        String line = client.readString();
-        Serial.println(line);
+    if(STATE == 0){
+      int packsize = udp.parsePacket();
+      char package_buffer[256];
+      if(packsize!=0){
+        String msg = udp.readString();
+        Serial.println(msg);
+        if(msg == SCAN_MESSAGE){
+          userIP = udp.remoteIP();
+          Serial.print("User ip: ");
+          Serial.println(userIP);
+          scan_send_msg+=penIP+TCP_PORT+">";
+          udp.beginPacket(userIP,SCAN_SEND_PORT);
+          udp.println(scan_send_msg);
+          udp.endPacket();
+          server.begin(TCP_PORT);
+          Serial.println("TCP Operation");
+          STATE = 1;
+        }
       }
-      
-      client.write(host);
-      client.write('\n');
-      client.flush();
-      Serial.println("Wrote to server");
-
-      delay(5000);
     }
+    else if(STATE == 1){
+      String reciever = "";
+      client = server.available();
+      if(client){
+        Serial.println("Connected");
+        while(client.connected()){
+          while(client.available()>0){
+            reciever = client.readStringUntil('\n');
+          }
+          processCommand(reciever);
+          delay(10);
+        }
+        client.stop();
+        Serial.println("Client disconnected");
+      }
+    }
+    
+}
+void processCommand(String reciever){
+  reciever.replace("\n","");
+  reciever.replace("\r","");
+  if(reciever == "start"){
+    client.println("start");
+  }
+  else{
+    client.println("invalid");
+  }
+  client.flush(); 
+}
+void sendMode(){
+//  Serial.println(client.write(dataArray,ARRAY_SIZE));
+//  client.write("end\n");
+//  client.flush();
 }
 
 void wifi_event_handler(WiFiEvent_t event)
