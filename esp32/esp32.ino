@@ -14,11 +14,27 @@ static const uint16_t SCAN_SEND_PORT = 4446;
 static const uint16_t TCP_PORT_SEND = 6000;
 static const uint16_t TCP_PORT_RECIEVE = 7000;
 static const uint16_t SPI_SPEED = 1000000;
+//software to pen
+static const byte CMD_START_SAMPLE = 0x21;
+static const byte CMD_STOP_SAMPLE = 0x22;
+static const byte CMD_CHECK_BAT = 0x23;
+static const byte CMD_SET_VOLTAGE = 0x41;
+static const byte CMD_SET_SAMPLE_PARAS = 0x42;
+//pen to software
+static const byte CMD_DATA = 0x00;
+static const byte CMD_REPORT_BAT = 0x01;
+static const byte CMD_SWIPE_UP = 0x11;
+static const byte CMD_SWIPE_DOWN = 0x12;
+static const byte CMD_CHANGE_SEL = 0x13;
+
 static const int MISO_PIN = 13;
 static const int MOSI_PIN = 12;
 static const int SCK_PIN = 14;
 static const int SS_PIN =15;
 static const int INTERRUPT_PIN = 23;
+static const int SPI_HEADER_SIZE = 5;
+static const int SPI_HEADER_SIZE_FIELD = 4;
+static const int SPI_HEADER_SIZE_TYPE = 1;
 static const int HEADER_SIZE = 5;
 static const int HEADER_SIZE_FEILD = 4;
 static const int HEADER_TYPE_FIELD = 1;
@@ -27,6 +43,7 @@ char scan_send_msg[1024] = "";
 IPAddress userIP;
 IPAddress penIP;
 uint8_t STATE = 0;
+uint8_t COMM_STATE = 0;
 const char *ssid = "Scopen";
 const char *password = "123456789";
 
@@ -97,24 +114,34 @@ void loop()
     }
     else if(STATE == 1){
       String reciever = "";
-      bool sent = true;
-      uint32_t dataLength = 0; short int dataType = 0;
+      uint32_t wifiDataLength = 0; short int wifiDataType = 0;
+      uint32_t spiDataLength = 0; short int spiDataType = 0;
+      byte* msg = NULL;
       clientRecieve = serverRecieve.available();
       clientSend = serverSend.available();
       delay(100);
       if(clientSend&&clientRecieve){
         Serial.println("Connected");
-        byte temp[10] = {1,20,66,12,11,4,9,0,99};
         while(clientSend.connected()&&clientRecieve.connected()){
-//          processHeader(dataLength, dataType);
-//          if(STATE == 2 && clientRecieve.available()>0){
-//            verifyIncomingMessage(dataLength);
-//          }
-          if(sent){
-            sendMessageToClient(temp,10,1);
-            sent = false;
-          }        
-          delay(10);
+            if(COMM_STATE == 0){
+              readHeaderSPI(spiDataLength, spiDataType);
+              readHeaderWIFI(wifiDataLength, wifiDataType);
+            }
+            if(COMM_STATE == 1){
+              msg = new byte[spiDataLength];
+              readMessageSPI(msg,spiDataLength);
+              writeMessageWIFI(msg,spiDataLength,spiDataType);
+              delete [] msg;
+              COMM_STATE == 0;
+            }
+            if(COMM_STATE == 2){
+              msg = new byte[wifiDataLength];
+              readMessageWIFI(msg, wifiDataLength);
+              writeMessageSPI(msg, wifiDataLength,spiDataType);
+              delete [] msg;
+              COMM_STATE == 0;
+            }
+          delay(1);
         }
         clientRecieve.stop();
         clientSend.stop();
@@ -126,7 +153,54 @@ void loop()
     } 
 }
 
-void sendHeader(const uint32_t &dataSize, const short int &dataType){
+
+void processCMDFromSTM(const short int &spiDataType){
+  switch(spiDataType){
+    case CMD_DATA:
+      COMM_STATE = 1;
+      break;
+    case CMD_REPORT_BAT:
+      COMM_STATE = 1;
+      break;
+    case CMD_SWIPE_UP:
+      COMM_STATE = 0;
+      break;
+    case CMD_SWIPE_DOWN:
+      COMM_STATE = 0;
+      break;
+    case CMD_CHANGE_SEL:
+      COMM_STATE = 0;
+      break;
+    default:
+      return;
+  }
+  sendHeaderWIFI(0,spiDataType);
+}
+
+void processCMDFromUser(const short int &dataType){
+  switch(dataType){
+    case CMD_START_SAMPLE:
+      COMM_STATE = 0;
+      break;
+    case CMD_STOP_SAMPLE:
+      COMM_STATE = 0;
+      break;
+    case CMD_CHECK_BAT:
+      COMM_STATE = 0;
+      break;
+    case CMD_SET_VOLTAGE:
+      COMM_STATE = 2;
+      break;
+    case CMD_SET_SAMPLE_PARAS:
+      COMM_STATE = 2;
+      break;
+    default:
+      return;
+  }
+  sendHeaderSPI(0,dataType);
+}
+
+void sendHeaderWIFI(const uint32_t &dataSize, const short int &dataType){
   byte header[HEADER_SIZE];
   header[3] = dataSize >> 32; 
   header[2] = dataSize >> 40; 
@@ -135,18 +209,65 @@ void sendHeader(const uint32_t &dataSize, const short int &dataType){
   header[4] = dataType;
   clientSend.write(header,HEADER_SIZE);
   clientSend.flush();
+  waitForACKWIFI();
+}
 
+void sendHeaderSPI(const uint32_t &dataSize, const short int &dataType){
+  int del = 1;
+  byte header[HEADER_SIZE];
+  header[3] = dataSize >> 32; 
+  header[2] = dataSize >> 40; 
+  header[1] = dataSize >> 48; 
+  header[0] = dataSize >> 56;
+  header[4] = dataType;
+  spi.beginTransaction(SPISettings(SPI_SPEED,MSBFIRST,SPI_MODE0));
+  digitalWrite(SS_PIN,LOW);
+  delay(del);
+  spi.writeBytes(header, SPI_HEADER_SIZE);
+  digitalWrite(SS_PIN,HIGH);
+  delay(del);
+  spi.endTransaction();
+  waitForACKSPI();
 }
-void sendMessageToClient(byte msg[], const uint32_t &dataLength, const short int &msgType){
-  sendHeader(dataLength, msgType);
-  if(waitForACK()){
-    Serial.println("Sending message");
-    Serial.print("Sent: ");
-    Serial.println(clientSend.write(msg, dataLength));
-    clientSend.flush();
-  }
+
+void writeMessageWIFI(const byte* msg, const uint32_t &dataLength, const short int &msgType){
+  sendHeaderWIFI(dataLength, msgType);
+  Serial.println("Sending message");
+  Serial.print("Sent: ");
+  Serial.println(clientSend.write(msg, dataLength));
+  clientSend.flush();
 }
-bool waitForACK(){
+
+void writeMessageSPI(const byte* msg, uint32_t msgLength, short int type){
+  int del = 1;
+  sendHeaderSPI(msgLength, type);
+  spi.beginTransaction(SPISettings(SPI_SPEED,MSBFIRST,SPI_MODE0));
+  digitalWrite(SS_PIN,LOW);
+  delay(del);
+  spi.writeBytes(msg, msgLength);
+  digitalWrite(SS_PIN,HIGH);
+  delay(del);
+  spi.endTransaction();
+  waitForACKSPI();
+}
+
+void sendACKWIFI(){
+  clientRecieve.write('A');
+  clientRecieve.flush();
+}
+
+void sendACKSPI(){
+  int del = 1;
+  spi.beginTransaction(SPISettings(SPI_SPEED,MSBFIRST,SPI_MODE0));
+  digitalWrite(SS_PIN,LOW);
+  delay(del);
+  spi.write('A');
+  digitalWrite(SS_PIN,HIGH);
+  delay(del);
+  spi.endTransaction();
+}
+
+bool waitForACKWIFI(){
   while(!(clientSend.available()>0)){
   }
 
@@ -156,73 +277,77 @@ bool waitForACK(){
   }
   return false;
 }
-void readSTM32SPI(){
-  int del = 1;
-  spi.beginTransaction(SPISettings(SPI_SPEED,MSBFIRST,SPI_MODE0));
-  digitalWrite(SS_PIN,LOW);
-  delay(del);
-  spi.transfer(dataArray,ARRAY_SIZE);
-  digitalWrite(SS_PIN,HIGH);
-  delay(del);
-  spi.endTransaction();
-}
 
-void writeSTM32SPI(uint8_t cmd){
-  int del = 1;
-  spi.beginTransaction(SPISettings(SPI_SPEED,MSBFIRST,SPI_MODE0));
-  digitalWrite(SS_PIN,LOW);
-  delay(del);
-  spi.write(cmd);
-  digitalWrite(SS_PIN,HIGH);
-  delay(del);
-  spi.endTransaction();
-}
-
-void sendAck(){
-  clientRecieve.write('A');
-  clientRecieve.flush();
-}
-
-bool verifyIncomingMessage(uint32_t dataSize){
-  Serial.println("processMSG");
-  bool sizeCorrect = false;
-  byte msg[dataSize];
-  if(clientRecieve.available()==dataSize){
-    sizeCorrect = true;
+bool waitForACKSPI(){
+  while(!readFlag){
   }
-  Serial.println("RecieveData");
-  clientRecieve.read(msg,dataSize);
-  for(int i = 0; i<dataSize; i++){
-    Serial.println(msg[i]);
+  readFlag = 0;
+  if(spi.transfer('A') == (int)'A'){
+    Serial.println("Recieved ACK");
+    return true;
   }
-  sendAck(); 
-  STATE = 1;
-  return sizeCorrect;
+  return false;
 }
 
-void processHeader(uint32_t &dataSize, short int &dataType){
-  byte header[HEADER_SIZE];
+
+
+void readHeaderWIFI(uint32_t &dataSize, short int &dataType){
   if(clientRecieve.available()==HEADER_SIZE){
+      byte header[HEADER_SIZE];
       Serial.print("Read: ");
       Serial.println(clientRecieve.read(header,HEADER_SIZE));  
       parseBigEndian(header,dataSize);
       dataType = header[HEADER_SIZE-1];
       Serial.print("Data size: "); Serial.println(dataSize);
       Serial.print("Data type: "); Serial.println(dataType);
-      sendAck();
-      STATE = 2;
+      sendACKWIFI();
+      processCMDFromUser(dataType);
   }
-}
-void printLongLongInt(uint32_t in){
-  char buf[50];
-  if(in > 0xFFFFFFFFLL) {
-    sprintf(buf, "%lX%08lX", (unsigned long)(in>>32), (unsigned long)(in&0xFFFFFFFFULL));
-  } else {
-    sprintf(buf, "%lX", (unsigned long)in);
-  }
-  Serial.println( buf );
 }
 
+void readHeaderSPI(uint32_t &spiDataSize, short int &spiDataType){
+  if(readFlag == 1){
+    byte header[SPI_HEADER_SIZE];
+    int del = 1;
+    spi.beginTransaction(SPISettings(SPI_SPEED,MSBFIRST,SPI_MODE0));
+    digitalWrite(SS_PIN,LOW);
+    delay(del);
+    spi.transfer(header,SPI_HEADER_SIZE);
+    digitalWrite(SS_PIN,HIGH);
+    delay(del);
+    spi.endTransaction();
+    Serial.println("SPI Read: ");
+    parseBigEndian(header, spiDataSize);
+    spiDataType = header[HEADER_SIZE-1];
+    Serial.print("Data size: "); Serial.println(spiDataSize);
+    Serial.print("Data type: "); Serial.println(spiDataType);
+    sendACKSPI();
+    processCMDFromSTM(spiDataType);
+  }
+}
+
+void readMessageSPI(byte* msg, const uint32_t &spiDataLength){
+  while(!readFlag){}
+  int del = 1;
+  readFlag = 1;
+  spi.beginTransaction(SPISettings(SPI_SPEED,MSBFIRST,SPI_MODE0));
+  digitalWrite(SS_PIN,LOW);
+  delay(del);
+  spi.transfer(msg,spiDataLength);
+  digitalWrite(SS_PIN,HIGH);
+  delay(del);
+  spi.endTransaction();
+}
+
+void readMessageWIFI(byte* msg, uint32_t dataSize){
+  while(!(clientRecieve.available()>0)){}
+  Serial.println("RecieveData");
+  clientRecieve.read(msg,dataSize);
+//  for(int i = 0; i<dataSize; i++){
+//    Serial.println(msg[i]);
+//  }
+  sendACKWIFI(); 
+}
 
 void parseBigEndian(byte *input, uint32_t &output){
   output =(input[4] << 24) | (input[5] << 16) | (input[6]<<8) | (input[7]);
