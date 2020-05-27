@@ -172,6 +172,7 @@ void processCMDFromSTM(const short int &spiDataType){
       COMM_STATE = 0;
       break;
     default:
+      Serial.println("Invalid CMD from STM");
       return;
   }
   sendHeaderWIFI(0,spiDataType);
@@ -195,6 +196,7 @@ void processCMDFromUser(const short int &dataType){
       COMM_STATE = 2;
       break;
     default:
+      Serial.println("Invalid CMD from User");
       return;
   }
   sendHeaderSPI(0,dataType);
@@ -272,7 +274,7 @@ bool waitForACKWIFI(){
   }
 
   if(clientSend.read() == (int)'A'){
-    Serial.println("Recieved ACK");
+    Serial.println("Recieved ACK WIFI");
     return true;
   }
   return false;
@@ -283,7 +285,7 @@ bool waitForACKSPI(){
   }
   readFlag = 0;
   if(spi.transfer('A') == (int)'A'){
-    Serial.println("Recieved ACK");
+    Serial.println("Recieved ACK SPI");
     return true;
   }
   return false;
@@ -307,6 +309,7 @@ void readHeaderWIFI(uint32_t &dataSize, short int &dataType){
 
 void readHeaderSPI(uint32_t &spiDataSize, short int &spiDataType){
   if(readFlag == 1){
+    readFlag = 0;
     byte header[SPI_HEADER_SIZE];
     int del = 1;
     spi.beginTransaction(SPISettings(SPI_SPEED,MSBFIRST,SPI_MODE0));
@@ -337,6 +340,7 @@ void readMessageSPI(byte* msg, const uint32_t &spiDataLength){
   digitalWrite(SS_PIN,HIGH);
   delay(del);
   spi.endTransaction();
+  sendACKSPI;
 }
 
 void readMessageWIFI(byte* msg, uint32_t dataSize){
