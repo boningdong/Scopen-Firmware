@@ -261,7 +261,7 @@ void sendACKSPI(){
 }
 
 bool waitForACKUART(){
-  while(!(Serial2.available()>0)){}
+  while(!(Serial2.available()>0)){} //need timeout
   if(Serial2.read() == (int) 'A'){
     Serial.println("Recieved ACK UART");
     return true;
@@ -270,7 +270,7 @@ bool waitForACKUART(){
 }
 
 bool waitForACKWIFI(){
-  while(!(clientSend.available()>0)){
+  while(!(clientSend.available()>0)){ //need timeout
   }
 
   if(clientSend.read() == (int)'A'){
