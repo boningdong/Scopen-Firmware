@@ -38,6 +38,7 @@ BUILD_DIR = build
 C_SOURCES =  \
 Core/Src/periph/iqs266.c \
 Core/Src/periph/i2c.c \
+Src/app_freertos.c \
 Core/Src/sram.c \
 Core/Src/afe.c \
 Core/Src/system.c \
@@ -46,6 +47,7 @@ Core/Src/main.c \
 Core/Src/stm32g4xx_it.c \
 Core/Src/stm32g4xx_hal_msp.c \
 Core/Src/led.c \
+Src/stm32g4xx_hal_timebase_tim.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_gpio.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_adc.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_adc_ex.c \
@@ -75,7 +77,17 @@ Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_ll_gpio.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_ll_i2c.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_ll_exti.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_hrtim.c\
-Core/Src/system_stm32g4xx.c
+Core/Src/system_stm32g4xx.c \
+Middlewares/Third_Party/FreeRTOS/Source/croutine.c \
+Middlewares/Third_Party/FreeRTOS/Source/event_groups.c \
+Middlewares/Third_Party/FreeRTOS/Source/list.c \
+Middlewares/Third_Party/FreeRTOS/Source/queue.c \
+Middlewares/Third_Party/FreeRTOS/Source/stream_buffer.c \
+Middlewares/Third_Party/FreeRTOS/Source/tasks.c \
+Middlewares/Third_Party/FreeRTOS/Source/timers.c \
+Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS/cmsis_os.c \
+Middlewares/Third_Party/FreeRTOS/Source/portable/MemMang/heap_4.c \
+Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F/port.c
 
 # ASM sources
 ASM_SOURCES =  \
@@ -136,6 +148,9 @@ C_INCLUDES =  \
 -ICore/Inc \
 -IDrivers/STM32G4xx_HAL_Driver/Inc \
 -IDrivers/STM32G4xx_HAL_Driver/Inc/Legacy \
+-IMiddlewares/Third_Party/FreeRTOS/Source/include \
+-IMiddlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS \
+-IMiddlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F \
 -IDrivers/CMSIS/Device/ST/STM32G4xx/Include \
 -IDrivers/CMSIS/Include
 

@@ -29,11 +29,13 @@
 #include <stdio.h>
 #include "system.h"
 #include "periph/iqs266.h"
+#include "cmsis_os.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+osThreadId task1_id;
+osThreadId task2_id;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -77,6 +79,19 @@ static void MX_USART3_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void rtos_task_1() {
+  for(;;) {
+    HAL_GPIO_TogglePin(GPIO_LED_GROUP, GPIO_LED_RED_PIN);
+    osDelay(2000);
+  }
+}
+
+void rtos_task_2() {
+  for(;;) {
+    HAL_GPIO_TogglePin(GPIO_LED_GROUP, GPIO_LED_GREEN_PIN);
+    osDelay(1000);
+  }
+}
 
 /* USER CODE END 0 */
 
@@ -122,7 +137,15 @@ int main(void)
   touch_init();
   system_init_interfaces();
 
+  osThreadDef(task1, rtos_task_1, osPriorityNormal, 0, 128);
+  task1_id = osThreadCreate(osThread(task1), NULL);
+
+  osThreadDef(task2, rtos_task_2, osPriorityNormal, 0, 256);
+  task2_id = osThreadCreate(osThread(task2), NULL);
+  
+  osKernelStart();
   /* USER CODE END 2 */
+
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -614,7 +637,26 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM1 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
 
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM1) {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
+}
 /* USER CODE END 4 */
 
 /**

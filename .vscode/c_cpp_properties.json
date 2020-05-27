@@ -16,11 +16,13 @@
         {
             "name": "STM32",
             "includePath": [
-                "${workspaceFolder}/**",
                 "Core/Inc/**",
                 "Drivers/STM32G4xx_HAL_Driver/Inc/**",
                 "Drivers/STM32G4xx_HAL_Driver/Inc/Legacy/**",
                 "Drivers/CMSIS/Device/ST/STM32G4xx/Include/**",
+                "Middlewares/Third_Party/FreeRTOS/Source/include",
+                "Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS",
+                "Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F",
                 "Drivers/CMSIS/Include/**"
             ],
             "defines": [
