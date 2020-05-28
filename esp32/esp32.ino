@@ -97,26 +97,10 @@ void IRAM_ATTR flagReadADCData(void){
 }
 
 void downStreamTask(void* pvParameters){
-  uint32_t dataSize; short int dataType; byte* msg;
+  
   while(true){
-    if(clientSend.connected() && clientRecieve.connected()){
-      if(clientRecieve.available()==HEADER_SIZE){
-        readHeaderWIFI(dataSize, dataType);
-        if(verifyCMDFromUser(dataType)){
-          sendACKWIFI();
-          msg = new byte[dataSize];
-          readMessageWIFI(msg,dataSize);
-          sendACKWIFI();
-          sendHeaderUART(dataSize, dataType);
-          writeMessageUART(msg, dataSize);
-          delete [] msg;
-        }
-        else{
-          Serial.println("Wrong header dataType recieved from WIFI"); 
-        }
-      }
-    }
-}
+    
+  }
 }
 
 void setup()
@@ -175,8 +159,25 @@ void loop()
       delay(100);
       if(clientSend&&clientRecieve){
         Serial.println("Connected");
+        uint32_t dataSize; short int dataType; byte* msg;
         while(clientSend.connected()&&clientRecieve.connected()){
-          delay(1);
+          if(clientSend.connected() && clientRecieve.connected()){
+            if(clientRecieve.available()==HEADER_SIZE){
+              readHeaderWIFI(dataSize, dataType);
+              if(verifyCMDFromUser(dataType)){
+                sendACKWIFI();
+                msg = new byte[dataSize];
+                readMessageWIFI(msg,dataSize);
+                sendACKWIFI();
+                sendHeaderUART(dataSize, dataType);
+                writeMessageUART(msg, dataSize);
+                delete [] msg;
+              }
+              else{
+                Serial.println("Wrong header dataType recieved from WIFI"); 
+              }
+            }
+          }
         }
         clientRecieve.stop();
         clientSend.stop();
