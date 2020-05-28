@@ -11,12 +11,24 @@
 
 #include "main.h"
 #include "communication.h"
+#include "cmsis_os.h"
+#include "commands.h"
+
+static void _make_header(uint8_t* header, uint8_t type, uint32_t length);
+static void _init_transfer_semaphore();
 
 SPI_HandleTypeDef hspi3;
 DMA_HandleTypeDef hdma_spi3_rx;
 DMA_HandleTypeDef hdma_spi3_tx;
 
+osSemaphoreId sem_transfer_occupied;
+
+/**
+ * @brief Initialize the communication interface including spi and uart. And necessary semaphores.
+ * 
+ */
 void communication_initialization() {
+  _init_transfer_semaphore();
     GPIO_InitTypeDef GPIO_InitStruct = {0};
      __HAL_RCC_SPI3_CLK_ENABLE();
     __HAL_RCC_GPIOA_CLK_ENABLE();
@@ -126,6 +138,10 @@ void communication_receive(uint8_t* buffer, uint16_t count) {
   HAL_SPI_RECEIVE_DMA(&hspi3,buffer,count);
 }
 
+ErrorStatus communication_receive_block(uint8_t* buffer, uint16_t count, uint32_t timeout) {
+  return HAL_SPI_Receive(&hspi3, buffer, count, timeout);
+}
+
 //This interrupt tells you when data has arrived to STM32 after
 //using HAL_SPI_RECEIVE_DMA
 void DMA1_Channel3_IRQHandler(void)
@@ -141,4 +157,79 @@ void DMA1_Channel4_IRQHandler(void)
   HAL_GPIO_WritePin(GPIOB,GPIO_PIN_13,GPIO_PIN_SET);
   HAL_GPIO_WritePin(GPIOB,GPIO_PIN_13,GPIO_PIN_RESET);
   HAL_SPI_DMAStop(&hspi3);
+}
+
+/**
+ * @brief This function will transmit the formated packet to esp32 so that esp32 can forward the packet to tcp.
+ *        
+ * @param type    Command type. Defined in the commands.h
+ * @param buffer  Payload of the message. Can be address from SRAM or from any buffer.
+ * @param length  Payload transfer length.
+ */
+void communication_tranfer_message(uint8_t type, uint8_t* buffer, uint32_t length) {
+  // REVIEW: May need to change this function to return a boolean status.
+  ErrorStatus status;
+  uint8_t ack = 0;
+  // Make the header of the communication.
+  uint8_t header[HEADER_SIZE];
+  _make_header(header, type, length);
+  
+  osSemaphoreWait(sem_transfer_occupied, osWaitForever);
+  // Transfer the header of the data.
+  communication_transmit(header, HEADER_SIZE);
+  // Wait for the acknowledgement.
+  
+  status = communication_receive_block(&ack, 1, WAIT_ACK_TIMEOUT);
+  if (status != SUCCESS || status != 'A') {
+    // Release the shared resources and stop.
+    printf("Didn't received valid header ACK\r\n");
+    osSemaphoreRelease(sem_transfer_occupied);
+    return;
+  }
+  
+  // Transfer the data.
+  while (length) {
+    // Transfer the body
+    uint16_t transfer_size = (length <= MAX_SPI_BUFFER_SIZE) ? length : MAX_SPI_BUFFER_SIZE;
+    communication_transmit(buffer, transfer_size);
+    // Wait for the acknowledgement;
+    status = communication_receive_block(&ack, 1, WAIT_ACK_TIMEOUT);
+    if (status != SUCCESS || status != 'A') {
+      // Release the shared resources and stop.
+      printf("Didn't received valid body ACK\r\n");
+      osSemaphoreRelease(sem_transfer_occupied);
+      return;
+    }
+    length -= transfer_size;
+    buffer += transfer_size;
+  }
+  
+  // Release the shared resources and stop.
+  printf("Transfer succeed.\r\n");
+  osSemaphoreRelease(sem_transfer_occupied);
+}
+
+/**
+ * @brief Fill the passed-in header for based on the transfering data.
+ * 
+ * @param header  The header array that will be filled with the length and type info.
+ * @param type    Command type. Defined in the commands.h
+ * @param length  The length information of the payload.
+ */
+static void _make_header(uint8_t* header, uint8_t type, uint32_t length) {
+  header[HEADER_SIZE-1] = type;
+  for (uint8_t i = 0; i < HEADER_SIZE_FIELD; i++) {
+    uint8_t shift_bytes = HEADER_SIZE_FIELD - i - 1;
+    header[i] = (length >> (sizeof(uint8_t) * shift_bytes)) & 0xFF;
+  }
+}
+
+/**
+ * @brief Initialize the tranfer occupied semaphore so that it can accept one token.
+ * 
+ */
+static void _init_transfer_semaphore() {
+  osSemaphoreDef(SemSpiBusy);
+  sem_transfer_occupied = osSemaphoreCreate(osSemaphore(SemSpiBusy), 1);
+  printf("SPI Tranfer Semaphore is initialized.\r\n");
 }

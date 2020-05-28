@@ -36,6 +36,8 @@
 /* USER CODE BEGIN PTD */
 osThreadId task1_id;
 osThreadId task2_id;
+
+osSemaphoreId sem_task1;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -81,15 +83,16 @@ static void MX_USART3_UART_Init(void);
 /* USER CODE BEGIN 0 */
 void rtos_task_1() {
   for(;;) {
-    HAL_GPIO_TogglePin(GPIO_LED_GROUP, GPIO_LED_RED_PIN);
-    osDelay(2000);
+    osSemaphoreWait(sem_task1, osWaitForever);
+    printf("Task1 printing...\r\n");
   }
 }
 
 void rtos_task_2() {
   for(;;) {
-    HAL_GPIO_TogglePin(GPIO_LED_GROUP, GPIO_LED_GREEN_PIN);
-    osDelay(1000);
+    osDelay(5000);
+    printf("Task2 is Ving the semaphore...\r\n");
+    osSemaphoreRelease(sem_task1);
   }
 }
 
@@ -142,6 +145,9 @@ int main(void)
 
   osThreadDef(task2, rtos_task_2, osPriorityNormal, 0, 256);
   task2_id = osThreadCreate(osThread(task2), NULL);
+
+  osSemaphoreDef(demoSem);
+  sem_task1 = osSemaphoreCreate(osSemaphore(demoSem), 3);
   
   osKernelStart();
   /* USER CODE END 2 */
