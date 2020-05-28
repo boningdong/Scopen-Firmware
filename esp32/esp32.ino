@@ -43,7 +43,7 @@ IPAddress penIP;
 uint8_t CONNECTION_STATE = 0;
 const char *ssid = "Scopen";
 const char *password = "123456789";
-
+byte intFlag= 0;
 WiFiUDP udp;
 WiFiServer serverSend;
 WiFiServer serverRecieve;
@@ -55,7 +55,7 @@ const static int serialTXPin = 22;
 SPIClass spi(HSPI);
 
 static int taskCore = 0;
-
+TaskHandle_t downStreamTaskHandle;
 struct upStream {
   uint32_t dataCount;
   short int dataType;
@@ -64,46 +64,51 @@ struct upStream {
 };
 upStream incoming;
 void IRAM_ATTR flagReadADCData(void){
-  Serial.println("Something from SPI");
-  if(!incoming.recievedHeader){
-    readHeaderSPI(incoming.dataCount, incoming.dataType);
-    if(verifyCMDFromSTM(incoming.dataType)){
-      Serial.print("Recieved SPI HEADER: ");
-      Serial.println(incoming.dataType, HEX);
-      incoming.recievedHeader = true;
-      sendHeaderWIFI(incoming.dataCount, incoming.dataType);
-      sendACKSPI();
-    }
-    else{
-      Serial.println("Wrong header datatype sent from SPI");
-      incoming.recievedHeader = false;
-    }
-  }
-  else{
-    if(incoming.dataCount>MAX_SPI_BUFFER){
-      incoming.msg = new byte[MAX_SPI_BUFFER];
-      readMessageSPI(incoming.msg, MAX_SPI_BUFFER);
-      writeMessageWIFI(incoming.msg, MAX_SPI_BUFFER);
-      delete [] incoming.msg;
-      incoming.dataCount -= MAX_SPI_BUFFER;
-    }
-    else{
-      incoming.msg = new byte[incoming.dataCount];
-      readMessageSPI(incoming.msg, incoming.dataCount);
-      writeMessageWIFI(incoming.msg, incoming.dataCount);
-      delete [] incoming.msg;
-      incoming.recievedHeader = false;
-    }
-    sendACKSPI();
-  }
+  intFlag = 1;
+  Serial.println("Triggered");
   
 }
 
 void downStreamTask(void* pvParameters){
-  
   while(true){
-    
+  
+  if(intFlag){
+    Serial.println("Something from SPI");
+    if(!incoming.recievedHeader){
+      readHeaderSPI(incoming.dataCount, incoming.dataType);
+      if(verifyCMDFromSTM(incoming.dataType)){
+        Serial.print("Recieved SPI HEADER: ");
+        Serial.println(incoming.dataType, HEX);
+        incoming.recievedHeader = true;
+        sendHeaderWIFI(incoming.dataCount, incoming.dataType);
+        sendACKSPI();
+      }
+      else{
+        Serial.println("Wrong header datatype sent from SPI");
+        incoming.recievedHeader = false;
+      }
+    }
+    else{
+      if(incoming.dataCount>MAX_SPI_BUFFER){
+        incoming.msg = new byte[MAX_SPI_BUFFER];
+        readMessageSPI(incoming.msg, MAX_SPI_BUFFER);
+        writeMessageWIFI(incoming.msg, MAX_SPI_BUFFER);
+        delete [] incoming.msg;
+        incoming.dataCount -= MAX_SPI_BUFFER;
+      }
+      else{
+        incoming.msg = new byte[incoming.dataCount];
+        readMessageSPI(incoming.msg, incoming.dataCount);
+        writeMessageWIFI(incoming.msg, incoming.dataCount);
+        delete [] incoming.msg;
+        incoming.recievedHeader = false;
+      }
+      sendACKSPI();
+    }
+    intFlag = 0;
   }
+}
+  
 }
 
 void setup()
@@ -115,14 +120,14 @@ void setup()
     penIP = WiFi.softAPIP();
     Serial.println("AP IP address: ");
     Serial.println(penIP);
-
+    
     pinMode(SS_PIN, OUTPUT);
     digitalWrite(SS_PIN, HIGH);
     attachInterrupt(INTERRUPT_PIN, flagReadADCData,RISING);
     spi.begin(SCK_PIN,MISO_PIN,MOSI_PIN,SS_PIN);
-    
+   
     WiFi.onEvent(wifi_event_handler);
-    xTaskCreatePinnedToCore(downStreamTask,"downStream",10000,NULL,0,NULL,taskCore);
+    xTaskCreatePinnedToCore(downStreamTask,"downStream",10000,NULL,0,&downStreamTaskHandle,taskCore);
     udp.begin(SCAN_LISTEN_PORT);
     delay(500);
 }
@@ -296,15 +301,20 @@ void readHeaderWIFI(uint32_t &dataSize, short int &dataType){
 
 void readHeaderSPI(uint32_t &spiDataSize, short int &spiDataType){
     byte header[HEADER_SIZE];
+
     int del = 1;
     spi.beginTransaction(SPISettings(SPI_SPEED,MSBFIRST,SPI_MODE0));
     digitalWrite(SS_PIN,LOW);
     delay(del);
-    spi.transfer(header,HEADER_SIZE);
+    spi.transferBytes(NULL,header,HEADER_SIZE);
     digitalWrite(SS_PIN,HIGH);
     delay(del);
     spi.endTransaction();
+    
     Serial.println("SPI Read: ");
+        for(int i = 0; i<HEADER_SIZE; i++){
+      Serial.println(header[i]);
+    }
     parseBigEndian(header, spiDataSize);
     spiDataType = header[HEADER_SIZE-1];
     Serial.print("Data size: "); Serial.println(spiDataSize);
@@ -330,7 +340,7 @@ void readMessageWIFI(byte* msg, uint32_t dataSize){
 }
 
 void parseBigEndian(byte *input, uint32_t &output){
-  output =(input[4] << 24) | (input[5] << 16) | (input[6]<<8) | (input[7]);
+  output =(input[0] << 24) | (input[1] << 16) | (input[2]<<8) | (input[3]);
 }
 
 void wifi_event_handler(WiFiEvent_t event)
