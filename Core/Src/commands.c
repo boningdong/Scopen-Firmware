@@ -23,16 +23,12 @@ static void _check_bat_handle(command_t* cmd);
 static void _set_volt_handle(command_t* cmd);
 static void _set_sample_paras_handle(command_t* cmd);
 
-/**
- * @brief sem_samples_ready indicates whether the controller need to transfer samples to the upper machine.
- * 
- */
-osSemaphoreId sem_samples_ready;
+command_t latest_cmd = {0};
+
 /**
  * @brief sem_commands_ready indicates whether the command handling thread needs to transfer user inputs.
  * 
  */
-
 osSemaphoreId sem_send_slots;
 osSemaphoreId sem_recv_slots;
 osSemaphoreId sem_commands_send;
@@ -53,7 +49,6 @@ void command_processor_init() {
   osSemaphoreDef(recv_slots);
   osSemaphoreDef(send_cmds);
   osSemaphoreDef(recv_cmds);
-  sem_samples_ready = osSemaphoreCreate(osSemaphore(samples_ready), 1);
   sem_send_slots = osSemaphoreCreate(osSemaphore(send_slots), CMD_BUFF_SIZE);
   sem_recv_slots = osSemaphoreCreate(osSemaphore(recv_slots), CMD_BUFF_SIZE);
   sem_commands_send = osSemaphoreCreate(osSemaphore(send_cmds), 1);

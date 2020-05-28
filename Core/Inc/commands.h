@@ -50,7 +50,9 @@ typedef struct {
 } command_buff_t;
 
 
+
 // Extern variables
+extern command_t latest_cmd;
 extern osSemaphoreId sem_samples_ready;
 extern osSemaphoreId sem_send_slots;
 extern osSemaphoreId sem_recv_slots;

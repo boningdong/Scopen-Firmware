@@ -26,16 +26,19 @@ osThreadId send_cmd_task;
 osThreadId send_data_task;
 osThreadId exec_cmd_task;
 osThreadId wait_uart_task;
+osThreadId event_handle_task;
 
 void tasks_initialization() {
-  osThreadDef(SendCmd, task_send_command, osPriorityNormal, 0, 128);
-  osThreadDef(SendData, task_send_data, osPriorityHigh, 0, 128);
-  osThreadDef(ExecCmd, task_exec_command, osPriorityNormal, 0, 128);
-  osThreadDef(WaitUart, task_listen_uart, osPriorityNormal, 0, 128);
-  // send_cmd_task = osThreadCreate(osThread(SendCmd), NULL);
-  // send_data_task = osThreadCreate(osThread(SendData), NULL);
+  osThreadDef(SendCmd, task_send_command, osPriorityNormal, 0, 64);
+  osThreadDef(SendData, task_send_data, osPriorityHigh, 0, 64);
+  osThreadDef(ExecCmd, task_exec_command, osPriorityNormal, 0, 64);
+  osThreadDef(WaitUart, task_listen_uart, osPriorityNormal, 0, 64);
+  osThreadDef(EventHandle, task_handle_event, osPriorityRealtime, 0, 64);
+  send_cmd_task = osThreadCreate(osThread(SendCmd), NULL);
+  send_data_task = osThreadCreate(osThread(SendData), NULL);
   exec_cmd_task = osThreadCreate(osThread(ExecCmd), NULL);
   wait_uart_task = osThreadCreate(osThread(WaitUart), NULL);
+  event_handle_task = osThreadCreate(osThread(EventHandle), NULL);
 }
 
 /**
@@ -46,6 +49,7 @@ void task_send_command() {
   printf("Send Command thread has been initialized.\r\n");
   osSemaphoreWait(sem_commands_send, osWaitForever);
   for(;;) {
+    // Send command
     osSemaphoreWait(sem_commands_send, osWaitForever);
     printf("Sending pen cmd to PC.\r\n");
     command_t cmd = command_send_dequeue();
@@ -54,6 +58,7 @@ void task_send_command() {
     // Free the dynamic memory allocated for the cmd.
     if (cmd.argv != NULL && cmd.argc != 0)
       free(cmd.argv);
+    
   }
 }
 
@@ -63,10 +68,10 @@ void task_send_command() {
  */
 void task_send_data() {
   printf("Send Data thread has been initialized.\r\n");
-  osSemaphoreWait(sem_samples_ready, osWaitForever);
+  // TODO: Take out this semaphore and use a signal instread.
   for(;;) {
     // TODO: Turn off ADC sampling first.
-    osSemaphoreWait(sem_samples_ready, osWaitForever);
+    osSignalWait(UNBLOCK_SIGNAL, osWaitForever);
     printf("Sending data to PC.\r\n");
     // TODO: Implement the transfer data method.
     // Need to call communication_transfer_message here.
@@ -179,23 +184,14 @@ void task_listen_uart() {
  * 
  * @param args A void pointer that should be able to cast to command_t*.
  */
-void task_handle_event(void* args) {
+void task_handle_event() {
   printf("Touch event handling thread.\r\n");
   osStatus os_status = 0;
-  command_t* cmd = (command_t*) args;
-  
-  // Check whether there are enough slots.
-  osSemaphoreWait(sem_send_slots, osWaitForever);
-  command_send_enqueue(*cmd);
-  osSemaphoreRelease(sem_commands_send);
-
-  // Free the cmd struct but not free cmd->argv;
-  if (cmd != NULL)
-    free(cmd);
-  // Terminate the current thread.
-  osThreadId current_thread_id = osThreadGetId();
-  os_status = osThreadTerminate(current_thread_id);
-  if (os_status != osOK) {
-    printf("Thread cannot be terminated.\r\n");
+  for(;;) {
+    osSignalWait(UNBLOCK_SIGNAL, osWaitForever);
+    // Check whether there are enough slots.
+    osSemaphoreWait(sem_send_slots, osWaitForever);
+    command_send_enqueue(latest_cmd);
+    osSemaphoreRelease(sem_commands_send);
   }
 } 

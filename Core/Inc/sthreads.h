@@ -12,11 +12,21 @@
 #ifndef __STHREADS_H__
 #define __STHREADS_H__
 
+#include "cmsis_os.h"
+
+#define UNBLOCK_SIGNAL 0x01
+
+extern osThreadId send_cmd_task;
+extern osThreadId send_data_task;
+extern osThreadId exec_cmd_task;
+extern osThreadId wait_uart_task;
+extern osThreadId event_handle_task;
+
 void tasks_initialization();
 void task_send_command();
 void task_send_data();
 void task_exec_command();
 void task_listen_uart();
-void task_handle_event(void* args);
+void task_handle_event();
 
 #endif

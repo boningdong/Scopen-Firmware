@@ -11,6 +11,9 @@
 #include <stm32g4xx_ll_gpio.h>
 
 
+event_flags_t events = {0};
+trackpad_flags_t gestures = {0};
+
 /**
  * @brief Initialize and configure the touch sensor on this board.
  * 
@@ -43,7 +46,7 @@ void touch_init() {
   // Set touch parameters
   iqs266_set_touch_base_value(3, true);
   iqs266_set_touch_ati_target(35, true);
-  iqs266_set_touch_sensitivity(ALL, 45, true);
+  iqs266_set_touch_sensitivity(ALL, 55, true);
   // Set tap parameters.
   iqs266_set_tap_timeout(75, true);
   iqs266_set_tap_threshold(35, true);
@@ -68,48 +71,34 @@ void EXTI15_10_IRQHandler(void) {
     // Disable interrupt.
     iqs266_disable_rdy_interrupt();
 
-    // Creating the flags to hold the events.
-    uint8_t x, y;
-    event_flags_t events = {0};
-    trackpad_flags_t gestures = {0};
     // Reading the flags to determine what triggers the interrput.
     events.flagByte = iqs266_read_events(true);
-    gestures.flagByte = iqs266_read_gestures(true);
+    gestures.flagByte = iqs266_read_gestures(false);
     
-    x = iqs266_read_x(true);
-    y = iqs266_read_y(false);
-    printf("x: %u    y: %u\n", x, y);
-    
-    osThreadDef(TouchHandler, task_handle_event, osPriorityRealtime, 0, 128);
-    command_t* cmd = NULL; 
     if(events.tap) {
       if (gestures.tap) {
-        cmd = (command_t*) malloc(sizeof(command_t)); 
-        cmd->type = CMD_CHANGE_SEL;
-        cmd->argv = NULL;
-        cmd->argc = 0;
-        osThreadCreate(osThread(TouchHandler), (void*) cmd);
+        latest_cmd.type = CMD_CHANGE_SEL;
+        latest_cmd.argv = NULL;
+        latest_cmd.argc = 0;
+        osSignalSet(event_handle_task, UNBLOCK_SIGNAL);
       }
     } else if(events.swipe) {
       if (gestures.swipeUp) {
-        cmd = (command_t*) malloc(sizeof(command_t)); 
-        cmd->type = CMD_SWIPE_UP;
-        cmd->argv = NULL;
-        cmd->argc = 0;
-        osThreadCreate(osThread(TouchHandler), (void*) cmd);
+        latest_cmd.type = CMD_SWIPE_UP;
+        latest_cmd.argv = NULL;
+        latest_cmd.argc = 0;
+        osSignalSet(event_handle_task, UNBLOCK_SIGNAL);
       }
       else if (gestures.swipeDown) {
-        cmd = (command_t*) malloc(sizeof(command_t)); 
-        cmd->type = CMD_SWIPE_DOWN;
-        cmd->argv = NULL;
-        cmd->argc = 0;
-        osThreadCreate(osThread(TouchHandler), (void*) cmd);
+        latest_cmd.type = CMD_SWIPE_DOWN;
+        latest_cmd.argv = NULL;
+        latest_cmd.argc = 0;
+        osSignalSet(event_handle_task, UNBLOCK_SIGNAL);
       }
     }
 
     // Enable interrupt again.
     iqs266_enable_rdy_interrupt();
   }
-  LL_EXTI_ClearFlag_0_31(EXTI_LINE_10);
-  NVIC_ClearPendingIRQ(EXTI15_10_IRQn);
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_10);
 }

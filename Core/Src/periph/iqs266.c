@@ -41,8 +41,10 @@ void iqs266_init_ready_interrupt() {
   exti_config.Trigger = LL_EXTI_TRIGGER_FALLING;
   LL_EXTI_Init(&exti_config);
 
-  NVIC_SetPriority(EXTI15_10_IRQn, 0);
-  NVIC_EnableIRQ(EXTI15_10_IRQn);
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 8, 8);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+  // NVIC_SetPriority(EXTI15_10_IRQn, 0);
+  // NVIC_EnableIRQ(EXTI15_10_IRQn);
 }
 
 /**
