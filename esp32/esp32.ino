@@ -64,9 +64,12 @@ struct upStream {
 };
 upStream incoming;
 void IRAM_ATTR flagReadADCData(void){
+  Serial.println("Something from SPI");
   if(!incoming.recievedHeader){
     readHeaderSPI(incoming.dataCount, incoming.dataType);
     if(verifyCMDFromSTM(incoming.dataType)){
+      Serial.print("Recieved SPI HEADER: ");
+      Serial.println(incoming.dataType, HEX);
       incoming.recievedHeader = true;
       sendHeaderWIFI(incoming.dataCount, incoming.dataType);
       sendACKSPI();

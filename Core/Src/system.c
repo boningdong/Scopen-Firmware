@@ -23,7 +23,7 @@ void system_init_interfaces() {
   // Set the ESP32 TX and RX connections to be open-drain on MCU.
   // Avoid the conflicts of ESP32 firmware uploading.
   GPIO_InitTypeDef gpio_init_struct;
-  gpio_init_struct.Mode = GPIO_MODE_OUTPUT_OD;
+  gpio_init_struct.Mode = GPIO_MODE_INPUT;
   gpio_init_struct.Pin = GPIO_PIN_ESP32_TX | GPIO_PIN_ESP32_RX;
   gpio_init_struct.Pull = GPIO_PULLUP;
   gpio_init_struct.Speed = GPIO_SPEED_LOW;
