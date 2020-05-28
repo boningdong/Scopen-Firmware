@@ -126,7 +126,6 @@ int main(void)
   command_processor_init();
   touch_init();
   
-  
   tasks_initialization();
   osKernelStart();
   /* USER CODE END 2 */

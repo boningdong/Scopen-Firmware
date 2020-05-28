@@ -43,7 +43,6 @@ uint8_t adc2Data[ADC_DATA_LENGTH];
 uint8_t adc4Data[ADC_DATA_LENGTH];
 uint8_t adc5Data[ADC_DATA_LENGTH];
 
-
 /**
  * @brief Initializes all AFE peripherals
  *        Uses afe_adc_initialize and afe_adc_hrtim_initialize
@@ -431,6 +430,7 @@ void afe_adc_hrtim_initialize(void)
   {
     Error_Handler();
   }
+  // REVIEW: Here is controls the sampling period?
   pTimeBaseCfg.Period = period;
   pTimeBaseCfg.RepetitionCounter = 64;
   pTimeBaseCfg.PrescalerRatio = HRTIM_PRESCALERRATIO_DIV1;
@@ -477,7 +477,7 @@ void afe_adc_hrtim_initialize(void)
 
 }
 
-
+// REVIEW: How can make it support stride mode. Increment should be 4.
 void afe_sampling_start() {
     //calibrates all ADCs and starts them in DMA mode
     HAL_ADCEx_Calibration_Start(&hadc1, ADC_DIFFERENTIAL_ENDED);
@@ -599,3 +599,13 @@ void DMA2_Channel2_IRQHandler(void)
     afe_sampling_stop();
   }
 }
+
+/** REVIEW: Some design ideas: 
+ *  Need to create a global struct that stores the parameters.
+ *  Need to have a function to set the datalength and sampling frequency.
+ *  Before applying the new settings, need to check if it's the same as before. If it's same, don't stop the ADC for a better performance.
+ *  Operation sequence:
+ *  - Turn the ADC off first.
+ *  - Reconfigure the ADC.
+ *  - Turn the ADC on.
+ */
