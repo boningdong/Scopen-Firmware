@@ -15,6 +15,14 @@
 #include "commands.h"
 #include "cmsis_os.h"
 
+
+// Static function declarations
+static void _start_sample_handle(command_t* cmd);
+static void _stop_sample_handle(command_t* cmd);
+static void _check_bat_handle(command_t* cmd);
+static void _set_volt_handle(command_t* cmd);
+static void _set_sample_paras_handle(command_t* cmd);
+
 /**
  * @brief sem_samples_ready indicates whether the controller need to transfer samples to the upper machine.
  * 
@@ -40,15 +48,21 @@ command_buff_t recv_commands_buff = {0};
  */
 void command_processor_init() {
   // initialize the semaphores
+  osSemaphoreDef(samples_ready);
   osSemaphoreDef(send_slots);
   osSemaphoreDef(recv_slots);
   osSemaphoreDef(send_cmds);
   osSemaphoreDef(recv_cmds);
+  sem_samples_ready = osSemaphoreCreate(osSemaphore(samples_ready), 1);
   sem_send_slots = osSemaphoreCreate(osSemaphore(send_slots), CMD_BUFF_SIZE);
   sem_recv_slots = osSemaphoreCreate(osSemaphore(recv_slots), CMD_BUFF_SIZE);
-  sem_commands_send = osSemaphoreCreate(osSemaphore(send_cmds), 0);
-  sem_commands_recv = osSemaphoreCreate(osSemaphore(recv_cmds), 0);
+  sem_commands_send = osSemaphoreCreate(osSemaphore(send_cmds), 1);
+  sem_commands_recv = osSemaphoreCreate(osSemaphore(recv_cmds), 1);
   // initialize the ring buffers.
+  send_commands_buff.head_index = 0;
+  send_commands_buff.tail_index = 0;
+  recv_commands_buff.head_index = 0;
+  recv_commands_buff.tail_index = 0;
   
 }
 
@@ -82,22 +96,62 @@ command_t command_recv_dequeue() {
   recv_commands_buff.head_index = index % CMD_BUFF_SIZE;
   return cmd;
 }
-
-
-void command_send_thread() {
-  for(;;) {
-    osSemaphoreWait(sem_commands_send, osWaitForever);
-    command_t cmd = command_send_dequeue();
-    osSemaphoreRelease(sem_send_slots);
-    communication_transfer_message(cmd.type, cmd.argv, cmd.argc);
-    // Free the dynamic memory allocated for the cmd.
-    if (cmd.argv != NULL && cmd.argc != 0)
-      free(cmd.argv);
+ 
+bool command_validate(uint8_t type) {
+  switch(type) {
+  case CMD_START_SAMPLE:
+  case CMD_STOP_SAMPLE:
+  case CMD_CHECK_BAT:
+  case CMD_SET_VOLTAGE:
+  case CMD_SET_SAMPLE_PARAS:
+    return true;
+  default:
+    return false;
   }
 }
 
-void command_recv_thread() {
-  for(;;) {
-    osSemaphoreWait(sem_commands_recv, osWaitForever);
+void command_execute(command_t* cmd) {
+  if (cmd == NULL) {
+    printf("The passed in cmd pointer is null.\r\n");
+    return;
   }
+  switch(cmd->type) {
+    case CMD_START_SAMPLE:
+      _start_sample_handle(cmd);
+      break;
+    case CMD_STOP_SAMPLE:
+      _stop_sample_handle(cmd);
+      break;
+    case CMD_CHECK_BAT:
+      _check_bat_handle(cmd);
+      break;
+    case CMD_SET_VOLTAGE:
+      _set_volt_handle(cmd);
+      break;
+    case CMD_SET_SAMPLE_PARAS:
+      _set_sample_paras_handle(cmd);
+      break;
+    default:
+      printf("Invalid command to execute.\r\n");
+  }
+}
+
+static void _start_sample_handle(command_t* cmd) {
+  printf("Start sampling.\r\n");
+}
+
+static void _stop_sample_handle(command_t* cmd) {
+  printf("Stop sampling.\r\n");
+}
+
+static void _check_bat_handle(command_t* cmd) {
+  printf("Check voltage.\r\n");
+}
+
+static void _set_volt_handle(command_t* cmd) {
+  printf("Set voltage.\r\n");
+}
+
+static void _set_sample_paras_handle(command_t* cmd) {
+  printf("Set sample paras.\r\n");
 }

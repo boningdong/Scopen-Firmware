@@ -1,5 +1,5 @@
-#ifndef __TOUCH_H__
-#define __TOUCH_H__
+#ifndef __IQS266_H__
+#define __IQS266_H__
 
 #include "main.h"
 

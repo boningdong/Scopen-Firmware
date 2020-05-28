@@ -39,6 +39,9 @@ C_SOURCES =  \
 Core/Src/periph/iqs266.c \
 Core/Src/periph/i2c.c \
 Src/app_freertos.c \
+Core/Src/commands.c \
+Core/Src/communication.c \
+Core/Src/sthreads.c \
 Core/Src/sram.c \
 Core/Src/afe.c \
 Core/Src/system.c \
@@ -47,11 +50,13 @@ Core/Src/main.c \
 Core/Src/stm32g4xx_it.c \
 Core/Src/stm32g4xx_hal_msp.c \
 Core/Src/led.c \
+Core/Src/system_stm32g4xx.c \
 Src/stm32g4xx_hal_timebase_tim.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_gpio.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_adc.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_adc_ex.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_ll_adc.c \
+Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_spi.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_rcc.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_rcc_ex.c \
@@ -77,7 +82,6 @@ Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_ll_gpio.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_ll_i2c.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_ll_exti.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_hrtim.c\
-Core/Src/system_stm32g4xx.c \
 Middlewares/Third_Party/FreeRTOS/Source/croutine.c \
 Middlewares/Third_Party/FreeRTOS/Source/event_groups.c \
 Middlewares/Third_Party/FreeRTOS/Source/list.c \

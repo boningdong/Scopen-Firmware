@@ -9,6 +9,9 @@
  * 
  */
 
+#ifndef __AFE_H__
+#define __AFE_H__
+
 #include "main.h"
 #define ADC_DATA_LENGTH 100
 
@@ -26,3 +29,5 @@ void DMA1_Channel1_IRQHandler(void);
 void DMA2_Channel1_IRQHandler(void);
 void DMA1_Channel2_IRQHandler(void);
 void DMA2_Channel2_IRQHandler(void);
+
+#endif

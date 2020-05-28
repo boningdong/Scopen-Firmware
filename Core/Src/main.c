@@ -28,16 +28,15 @@
 #include "led.h"
 #include <stdio.h>
 #include "system.h"
+#include "communication.h"
+#include "commands.h"
+#include "sthreads.h"
 #include "periph/iqs266.h"
 #include "cmsis_os.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-osThreadId task1_id;
-osThreadId task2_id;
-
-osSemaphoreId sem_task1;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -81,21 +80,6 @@ static void MX_USART3_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void rtos_task_1() {
-  for(;;) {
-    osSemaphoreWait(sem_task1, osWaitForever);
-    printf("Task1 printing...\r\n");
-  }
-}
-
-void rtos_task_2() {
-  for(;;) {
-    osDelay(5000);
-    printf("Task2 is Ving the semaphore...\r\n");
-    osSemaphoreRelease(sem_task1);
-  }
-}
-
 /* USER CODE END 0 */
 
 /**
@@ -137,18 +121,13 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   led_init();
-  touch_init();
   system_init_interfaces();
-
-  osThreadDef(task1, rtos_task_1, osPriorityNormal, 0, 128);
-  task1_id = osThreadCreate(osThread(task1), NULL);
-
-  osThreadDef(task2, rtos_task_2, osPriorityNormal, 0, 256);
-  task2_id = osThreadCreate(osThread(task2), NULL);
-
-  osSemaphoreDef(demoSem);
-  sem_task1 = osSemaphoreCreate(osSemaphore(demoSem), 3);
+  communication_initialization();
+  command_processor_init();
+  touch_init();
   
+  
+  tasks_initialization();
   osKernelStart();
   /* USER CODE END 2 */
 

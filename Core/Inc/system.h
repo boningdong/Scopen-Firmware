@@ -16,9 +16,6 @@
 
 #include "main.h"
 
-
-
-
 #define GPIO_PIN_ESP32_NSS    GPIO_PIN_15
 #define GPIO_PIN_ESP32_SCK    GPIO_PIN_10
 #define GPIO_PIN_ESP32_MOSI   GPIO_PIN_11

@@ -1,6 +1,11 @@
 #include "touch.h"
 #include "main.h"
+#include "commands.h"
+#include "cmsis_os.h"
+#include "sthreads.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include "periph/iqs266.h"
 #include <stm32g4xx_ll_bus.h>
 #include <stm32g4xx_ll_exti.h>
 #include <stm32g4xx_ll_gpio.h>
@@ -75,18 +80,31 @@ void EXTI15_10_IRQHandler(void) {
     y = iqs266_read_y(false);
     printf("x: %u    y: %u\n", x, y);
     
+    osThreadDef(TouchHandler, task_handle_event, osPriorityRealtime, 0, 128);
+    command_t* cmd = NULL; 
     if(events.tap) {
-      if (gestures.tap)
-        printf("Tap\n");
+      if (gestures.tap) {
+        cmd = (command_t*) malloc(sizeof(command_t)); 
+        cmd->type = CMD_CHANGE_SEL;
+        cmd->argv = NULL;
+        cmd->argc = 0;
+        osThreadCreate(osThread(TouchHandler), (void*) cmd);
+      }
     } else if(events.swipe) {
-      if (gestures.swipeUp)
-        printf("swapUp\n");
-      else if (gestures.swipeDown)
-        printf("SwapDown\n");
-      else if (gestures.swipeLeft)
-        printf("SwipeLeft\n");
-      else if (gestures.swipeRight)
-        printf("SwipeRight\n");
+      if (gestures.swipeUp) {
+        cmd = (command_t*) malloc(sizeof(command_t)); 
+        cmd->type = CMD_SWIPE_UP;
+        cmd->argv = NULL;
+        cmd->argc = 0;
+        osThreadCreate(osThread(TouchHandler), (void*) cmd);
+      }
+      else if (gestures.swipeDown) {
+        cmd = (command_t*) malloc(sizeof(command_t)); 
+        cmd->type = CMD_SWIPE_DOWN;
+        cmd->argv = NULL;
+        cmd->argc = 0;
+        osThreadCreate(osThread(TouchHandler), (void*) cmd);
+      }
     }
 
     // Enable interrupt again.
