@@ -14,12 +14,40 @@
  * 
  */
 
+#include "main.h"
 #include "afe.h"
 #include <math.h>
 #define ADC1_GPIO GPIO_PIN_0|GPIO_PIN_1
 #define ADC2_GPIO GPIO_PIN_6|GPIO_PIN_7
 #define ADC4_GPIO GPIO_PIN_12|GPIO_PIN_14;
 #define ADC5_GPIO GPIO_PIN_8|GPIO_PIN_9
+
+#define ADC_SAMPLE_LENGTH     (sample_paras.sample_length)
+#define ADC_BUFFER_BASE       CCMSRAM_BASE
+#define ADC_BUFFER_A          ((uint8_t*)(ADC_BUFFER_BASE))
+#define ADC_BUFFER_B          ((uint8_t*)(ADC_BUFFER_BASE + sample_paras.sample_length))
+#define ADC_BUFFER_C          ((uint8_t*)(ADC_BUFFER_BASE + sample_paras.sample_length * 2))
+#define ADC_BUFFER_D          ((uint8_t*)(ADC_BUFFER_BASE + sample_paras.sample_length * 3))
+
+
+/**
+ * @brief Sample parameters used by the current ADC.
+ * Changing this parameters and call corresponding function to load this parameters into sampling config.
+ * 
+ */
+sample_paras_t sample_paras = {0};
+/**
+ * @brief Sample configurations for five speed levels.
+ * @note  These values should be selected to make the hrtim and ADC run at the performance that the Scopen-App expects. 
+ *        These values are calculated based on the system frequency (input to HRTIM1) to be 170MHz. Make sure the system frequency is correct.  
+ */
+const sample_config_t sample_configs[] = {
+  {.timer_prescaler = HRTIM_PRESCALERRATIO_MUL32,  .timer_period = 362},        // 15MHz Sampling Speed
+  {.timer_prescaler = HRTIM_PRESCALERRATIO_MUL32,  .timer_period = 5434},       // 1MHz Sampling Speed   
+  {.timer_prescaler = HRTIM_PRESCALERRATIO_MUL8,  .timer_period = 13605},       // 100KHz Sampling Speed
+  {.timer_prescaler = HRTIM_PRESCALERRATIO_DIV1,  .timer_period = 17006},       // 10KHz Sampling Speed
+  {.timer_prescaler = HRTIM_PRESCALERRATIO_DIV1,  .timer_period = 17006}        // 10KHz Sampling Speed
+};
 
 DAC_HandleTypeDef hdac1;
 DAC_HandleTypeDef hdac3;
@@ -38,10 +66,10 @@ HRTIM_HandleTypeDef hhrtim1;
 
 OPAMP_HandleTypeDef hopamp3;
 
-uint8_t adc1Data[ADC_DATA_LENGTH];
-uint8_t adc2Data[ADC_DATA_LENGTH];
-uint8_t adc4Data[ADC_DATA_LENGTH];
-uint8_t adc5Data[ADC_DATA_LENGTH];
+// uint8_t adc1Data[ADC_DATA_LENGTH];
+// uint8_t adc2Data[ADC_DATA_LENGTH];
+// uint8_t adc4Data[ADC_DATA_LENGTH];
+// uint8_t adc5Data[ADC_DATA_LENGTH];
 
 /**
  * @brief Initializes all AFE peripherals
@@ -368,7 +396,6 @@ void afe_adc_initialize() {
     }
 }
 
-
 void afe_adc_hrtim_initialize(void)
 {
   __HAL_RCC_HRTIM1_CLK_ENABLE();
@@ -477,22 +504,42 @@ void afe_adc_hrtim_initialize(void)
 
 }
 
-// REVIEW: How can make it support stride mode. Increment should be 4.
+/**
+ * @brief Start sampling. This function will recalibrate the ADCs first and then start.
+ * Sampling length will be configured inside this function.
+ */
 void afe_sampling_start() {
     //calibrates all ADCs and starts them in DMA mode
     HAL_ADCEx_Calibration_Start(&hadc1, ADC_DIFFERENTIAL_ENDED);
     HAL_ADCEx_Calibration_Start(&hadc2, ADC_DIFFERENTIAL_ENDED);
     HAL_ADCEx_Calibration_Start(&hadc4, ADC_DIFFERENTIAL_ENDED);
     HAL_ADCEx_Calibration_Start(&hadc5, ADC_DIFFERENTIAL_ENDED);
-    HAL_ADC_Start_DMA(&hadc1, adc1Data, ADC_DATA_LENGTH);
-    HAL_ADC_Start_DMA(&hadc2, adc2Data, ADC_DATA_LENGTH);
-    HAL_ADC_Start_DMA(&hadc4, adc4Data, ADC_DATA_LENGTH);
-    HAL_ADC_Start_DMA(&hadc5, adc5Data, ADC_DATA_LENGTH);
+    HAL_ADC_Start_DMA(&hadc1, ADC_BUFFER_A, ADC_SAMPLE_LENGTH);
+    HAL_ADC_Start_DMA(&hadc2, ADC_BUFFER_B, ADC_SAMPLE_LENGTH);
+    HAL_ADC_Start_DMA(&hadc4, ADC_BUFFER_C, ADC_SAMPLE_LENGTH);
+    HAL_ADC_Start_DMA(&hadc5, ADC_BUFFER_D, ADC_SAMPLE_LENGTH);
     HAL_HRTIM_SimpleBaseStart (&hhrtim1, HRTIM_TIMERINDEX_MASTER);
 }
 
 void afe_sampling_stop() {
   HAL_HRTIM_SimpleBaseStop(&hhrtim1, HRTIM_TIMERINDEX_MASTER);
+}
+
+/**
+ * @brief Configure the sampling length and speed using this function.
+ * 
+ * @param index   The sampling speed index. The detailed sampling speed levels are predefined values.
+ * @param length  Sampling length determines after how many samples the pen should transmit the data to the software.
+ */
+void afe_set_sampling_paras(uint8_t index, uint32_t length) {
+  // Update the global sample parameters configuration.
+  sample_paras.sample_length = length;
+  sample_paras.speed_option = index;
+  // Configure the timer frequency and period if it's necessary.
+  // __HAL_HRTIM_SetClockPrescaler()
+  // __HAL_HRTIM_SetPeriod()
+  // HAL_HRTIM_TimeBaseConfig() // Configure period and scaler ratio.
+  // HAL_HRTIM_WaveformTimerConfig
 }
 
 void afe_relay_control(bool on) {
