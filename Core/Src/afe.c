@@ -17,6 +17,8 @@
 #include "main.h"
 #include "afe.h"
 #include <math.h>
+#include "stm32g4xx_ll_hrtim.h"
+
 #define ADC1_GPIO GPIO_PIN_0|GPIO_PIN_1
 #define ADC2_GPIO GPIO_PIN_6|GPIO_PIN_7
 #define ADC4_GPIO GPIO_PIN_12|GPIO_PIN_14;
@@ -421,6 +423,7 @@ void afe_adc_hrtim_initialize(void)
     Error_Handler();
   }
   pADCTriggerCfg.UpdateSource = HRTIM_ADCTRIGGERUPDATE_MASTER;
+  // ADC triggers on master compared value 1.
   pADCTriggerCfg.Trigger = HRTIM_ADCTRIGGEREVENT13_MASTER_CMP1;
   if (HAL_HRTIM_ADCTriggerConfig(&hhrtim1, HRTIM_ADCTRIGGER_1, &pADCTriggerCfg) != HAL_OK)
   {
@@ -430,6 +433,7 @@ void afe_adc_hrtim_initialize(void)
   {
     Error_Handler();
   }
+  // ADC triggers on master compared value 3.
   pADCTriggerCfg.Trigger = HRTIM_ADCTRIGGEREVENT24_MASTER_CMP3;
   if (HAL_HRTIM_ADCTriggerConfig(&hhrtim1, HRTIM_ADCTRIGGER_2, &pADCTriggerCfg) != HAL_OK)
   {
@@ -439,6 +443,7 @@ void afe_adc_hrtim_initialize(void)
   {
     Error_Handler();
   }
+  // ADC triggers on master compared value 2.
   pADCTriggerCfg.Trigger = HRTIM_ADCTRIGGEREVENT13_MASTER_CMP2;
   if (HAL_HRTIM_ADCTriggerConfig(&hhrtim1, HRTIM_ADCTRIGGER_3, &pADCTriggerCfg) != HAL_OK)
   {
@@ -448,6 +453,7 @@ void afe_adc_hrtim_initialize(void)
   {
     Error_Handler();
   }
+  // ADC triggers on master period is reached.
   pADCTriggerCfg.Trigger = HRTIM_ADCTRIGGEREVENT24_MASTER_PERIOD;
   if (HAL_HRTIM_ADCTriggerConfig(&hhrtim1, HRTIM_ADCTRIGGER_4, &pADCTriggerCfg) != HAL_OK)
   {
@@ -457,9 +463,11 @@ void afe_adc_hrtim_initialize(void)
   {
     Error_Handler();
   }
-  // REVIEW: Here is controls the sampling period?
+  // Here set the master period time.
   pTimeBaseCfg.Period = period;
+  // The repetition counter means after how many counter (reset) events, the interrupt will be triggered.
   pTimeBaseCfg.RepetitionCounter = 64;
+  // The prescaler value determines timer frequency.
   pTimeBaseCfg.PrescalerRatio = HRTIM_PRESCALERRATIO_DIV1;
   pTimeBaseCfg.Mode = HRTIM_MODE_CONTINUOUS;
   if (HAL_HRTIM_TimeBaseConfig(&hhrtim1, HRTIM_TIMERINDEX_MASTER, &pTimeBaseCfg) != HAL_OK)
@@ -486,6 +494,7 @@ void afe_adc_hrtim_initialize(void)
   {
     Error_Handler();
   }
+  // Here configures the 3 value compare registers.
   pCompareCfg.CompareValue = period/4;
   if (HAL_HRTIM_WaveformCompareConfig(&hhrtim1, HRTIM_TIMERINDEX_MASTER, HRTIM_COMPAREUNIT_1, &pCompareCfg) != HAL_OK)
   {
@@ -525,21 +534,54 @@ void afe_sampling_stop() {
   HAL_HRTIM_SimpleBaseStop(&hhrtim1, HRTIM_TIMERINDEX_MASTER);
 }
 
+bool afe_is_sampling_stopped() {
+  if(LL_HRTIM_TIM_IsCounterEnabled(&hhrtim1, LL_HRTIM_TIMER_MASTER))
+    return false;
+  true;
+}
+
 /**
  * @brief Configure the sampling length and speed using this function.
  * 
  * @param index   The sampling speed index. The detailed sampling speed levels are predefined values.
  * @param length  Sampling length determines after how many samples the pen should transmit the data to the software.
+ * @note  This function need to be called when the timer is off.
  */
 void afe_set_sampling_paras(uint8_t index, uint32_t length) {
   // Update the global sample parameters configuration.
   sample_paras.sample_length = length;
   sample_paras.speed_option = index;
-  // Configure the timer frequency and period if it's necessary.
-  // __HAL_HRTIM_SetClockPrescaler()
-  // __HAL_HRTIM_SetPeriod()
-  // HAL_HRTIM_TimeBaseConfig() // Configure period and scaler ratio.
-  // HAL_HRTIM_WaveformTimerConfig
+  
+  HRTIM_CompareCfgTypeDef compareCfg = {0};
+  HRTIM_TimeBaseCfgTypeDef timeCfg = {0};
+  
+  uint32_t sample_period = sample_configs[index].timer_period * 4;
+  uint32_t scaler = sample_configs[index].timer_prescaler;
+  
+  // There are 4 ADCs, so the total period should be multiply the sample period by 4.
+  timeCfg.Period = sample_period * 4;
+  timeCfg.PrescalerRatio = scaler;
+  // Use continuous mode. Reload the counter after period overflows.
+  timeCfg.Mode = HRTIM_MODE_CONTINUOUS;
+  // This value doesn't matter. Because we are not using interrupt.
+  timeCfg.RepetitionCounter = 64;
+  if (HAL_HRTIM_TimeBaseConfig(&hhrtim1, HRTIM_TIMERINDEX_MASTER, &timeCfg) != HAL_OK) {
+    Error_Handler();
+  }
+  
+  // Here configures the 3 value compare registers.
+  compareCfg.CompareValue = (uint32_t)(sample_period/4);
+  if (HAL_HRTIM_WaveformCompareConfig(&hhrtim1, HRTIM_TIMERINDEX_MASTER, HRTIM_COMPAREUNIT_1, &compareCfg) != HAL_OK) {
+    Error_Handler();
+  }
+  compareCfg.CompareValue = (uint32_t)(sample_period/2);
+  if (HAL_HRTIM_WaveformCompareConfig(&hhrtim1, HRTIM_TIMERINDEX_MASTER, HRTIM_COMPAREUNIT_2, &compareCfg) != HAL_OK) {
+    Error_Handler();
+  }
+  compareCfg.CompareValue = (uint32_t)(sample_period*3/4);
+  if (HAL_HRTIM_WaveformCompareConfig(&hhrtim1, HRTIM_TIMERINDEX_MASTER, HRTIM_COMPAREUNIT_3, &compareCfg) != HAL_OK) {
+    Error_Handler();
+  }
 }
 
 void afe_relay_control(bool on) {

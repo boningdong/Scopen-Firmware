@@ -53,6 +53,8 @@ void afe_adc_hrtim_initialize();
 void afe_sampling_start();
 void afe_sampling_stop();
 void afe_relay_control(bool on);
+bool afe_is_sampling_stopped();
+void afe_set_sampling_paras(uint8_t index, uint32_t length);
 void DMA1_Channel1_IRQHandler(void);
 void DMA2_Channel1_IRQHandler(void);
 void DMA1_Channel2_IRQHandler(void);
