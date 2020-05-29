@@ -13,6 +13,7 @@
 #include "communication.h"
 #include "cmsis_os.h"
 #include "commands.h"
+#include "stm32g4xx_ll_dma.h"
 #include <stdio.h>
 
 static void _init_spi();
@@ -335,9 +336,11 @@ void DMA1_Channel3_IRQHandler(void)
  */
 void DMA1_Channel4_IRQHandler(void)
 {
+  if(LL_DMA_IsActiveFlag_TC4(DMA1)) {
+    //Triggers the ESP32 Interrupt
+    HAL_GPIO_WritePin(GPIOB,GPIO_PIN_13,GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOB,GPIO_PIN_13,GPIO_PIN_RESET);
+    HAL_SPI_DMAStop(&hspi3);
+  }
   HAL_DMA_IRQHandler(&hdma_spi3_tx);
-  //Triggers the ESP32 Interrupt
-  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_13,GPIO_PIN_SET);
-  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_13,GPIO_PIN_RESET);
-  HAL_SPI_DMAStop(&hspi3);
 }
