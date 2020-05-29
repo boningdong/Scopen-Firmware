@@ -12,4 +12,7 @@ void sram_fill_buffer(uint16_t* buffer, uint16_t size, uint16_t data);
 void sram_rand_write(uint32_t address, uint16_t* buffer, uint16_t size, uint16_t stride);
 void sram_rand_read(uint32_t address, uint16_t* buffer, uint16_t size, uint16_t stride);
 
+void sram_rand_write_embedded(uint32_t address, uint8_t* buffer, uint8_t size);
+void sram_rand_read_embedded(uint32_t address, uint8_t* buffer, uint8_t size);
+
 #endif

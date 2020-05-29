@@ -14,6 +14,7 @@
 #include "communication.h"
 #include "commands.h"
 #include "cmsis_os.h"
+#include "afe.h"
 
 
 // Static function declarations
@@ -61,6 +62,13 @@ void command_processor_init() {
   
 }
 
+/**
+ * @brief Add a command into the command-to-send queue.
+ * 
+ * @param   cmd An command_t object.
+ * @note    Before calling this function, need to wait for the 
+ *          sem_send_slots to make sure there are avaliable spaces.
+ */
 void command_send_enqueue(command_t cmd) {
   osSemaphoreWait(sem_send_slots, osWaitForever);
   uint8_t index = send_commands_buff.tail_index;
@@ -69,6 +77,13 @@ void command_send_enqueue(command_t cmd) {
   send_commands_buff.tail_index = index % CMD_BUFF_SIZE;
 }
 
+/**
+ * @brief Get the earliest command in the command-to-send queue.
+ * 
+ * @return An command_t object.
+ * @note    Before calling this function, need to wait for the 
+ *          sem_commands_send to make sure there are commands needed to be send.
+ */
 command_t command_send_dequeue() {
   uint8_t index = send_commands_buff.head_index;
   command_t cmd = send_commands_buff.commands[index];
@@ -77,6 +92,13 @@ command_t command_send_dequeue() {
   return cmd;
 }
 
+/**
+ * @brief Add a command into the command-received queue.
+ * 
+ * @param   cmd An command_t object.
+ * @note    Before calling this function, need to wait for the 
+ *          sem_recv_slots to make sure there are avaliable spaces.
+ */
 void command_recv_enqueue(command_t cmd) {
   uint8_t index = recv_commands_buff.tail_index;
   recv_commands_buff.commands[index] = cmd;
@@ -84,6 +106,13 @@ void command_recv_enqueue(command_t cmd) {
   recv_commands_buff.tail_index = index % CMD_BUFF_SIZE;
 }
 
+/**
+ * @brief Add a command into the command-received queue.
+ * 
+ * @return  An command_t object.
+ * @note    Before calling this function, need to wait for the 
+ *          sem_commands_recv to make sure there are commands.
+ */
 command_t command_recv_dequeue() {
   uint8_t index = recv_commands_buff.head_index;
   command_t cmd = recv_commands_buff.commands[index];
@@ -91,7 +120,15 @@ command_t command_recv_dequeue() {
   recv_commands_buff.head_index = index % CMD_BUFF_SIZE;
   return cmd;
 }
- 
+
+/**
+ * @brief Validate if the input command type is a valid type.
+ * 
+ * @param type    A command type defined in commands.h
+ * @return true   The input type is not valid.
+ * @return false  The input type is valid.
+ * @note  This function should be updated with the commands in commands.h.
+ */
 bool command_validate(uint8_t type) {
   switch(type) {
   case CMD_START_SAMPLE:
@@ -105,6 +142,11 @@ bool command_validate(uint8_t type) {
   }
 }
 
+/**
+ * @brief Executing the input command.
+ * 
+ * @param cmd Pointer to the command_t object.
+ */
 void command_execute(command_t* cmd) {
   if (cmd == NULL) {
     printf("The passed in cmd pointer is null.\r\n");
@@ -131,22 +173,72 @@ void command_execute(command_t* cmd) {
   }
 }
 
+/**
+ * @brief Handle the start sampling event. If the sampling has already been started.
+ * Then there is no effect.
+ * 
+ * @param cmd Pointer to the command_t object.
+ */
 static void _start_sample_handle(command_t* cmd) {
-  printf("Start sampling.\r\n");
+  if (!afe_is_sampling_stopped())
+    return;
+  afe_sampling_start();
 }
 
+/**
+ * @brief Handle the stop sampling event. If the sampling has already been stopped.
+ * Then there is no effect.
+ * 
+ * @param cmd Pointer to the command_t object.
+ */
 static void _stop_sample_handle(command_t* cmd) {
-  printf("Stop sampling.\r\n");
+  if (afe_is_sampling_stopped())
+    return;
+  afe_sampling_stop();
 }
 
+/**
+ * @brief Handle the battery checking event.
+ * 
+ * @param cmd Pointer to the command_t object.
+ */
 static void _check_bat_handle(command_t* cmd) {
   printf("Check voltage.\r\n");
 }
 
+/**
+ * @brief Handle the voltage set event. (affects gain based on the voltage setting.)
+ * 
+ * @param cmd Pointer to the command_t object.
+ */
 static void _set_volt_handle(command_t* cmd) {
   printf("Set voltage.\r\n");
+  // TODO: Need to implement this to set the gain.
 }
 
+/**
+ * @brief Handle the sample parameters set event. 
+ * 
+ * @param cmd Pointer to the command_t object.
+ */
 static void _set_sample_paras_handle(command_t* cmd) {
-  printf("Set sample paras.\r\n");
+  if (cmd == NULL) {
+    printf("Invalid cmd pointer.\r\n");
+    return;
+  }
+
+  if (cmd->argc != 5) {
+    printf("Invalid arg size.\r\n");
+    return;
+  }
+  uint8_t speed_option = cmd->argv[0];
+  uint32_t sample_length = (cmd->argv[1] << 24) | (cmd->argv[2] << 16) | (cmd->argv[3] << 8) | (cmd->argv[4]); 
+  // Check if the parsed sampling parameters are the same as the current one.
+  // If it's not, then reset the sampling parameters.
+  if (speed_option != sample_paras.speed_option || sample_length != sample_paras.sample_length) {
+    // Turn off the ADC sampling first.
+    afe_sampling_stop();
+    afe_set_sampling_paras(speed_option, sample_length);
+    afe_sampling_start();
+  }
 }

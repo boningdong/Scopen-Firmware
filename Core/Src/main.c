@@ -120,12 +120,12 @@ int main(void)
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
 
+  
   led_init();
   system_init_interfaces();
   communication_initialization();
   command_processor_init();
   touch_init();
-  
   
   tasks_initialization();
   osKernelStart();

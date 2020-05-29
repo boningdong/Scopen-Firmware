@@ -27,3 +27,17 @@ void sram_rand_read(uint32_t address, uint16_t* buffer, uint16_t size, uint16_t 
     buffer[i] = *cell;
   }
 }
+
+void sram_rand_write_embedded(uint32_t address, uint8_t* buffer, uint8_t size) {
+  uint8_t* cell = (uint8_t*) CCMSRAM_BASE + address;
+  for (int i = 0; i < size; i++) {
+    cell[i] = buffer[i];
+  }
+}
+
+void sram_rand_read_embedded(uint32_t address, uint8_t* buffer, uint8_t size) {
+  uint8_t* cell = (uint8_t*) CCMSRAM_BASE + address;
+  for (int i = 0; i < size; i++) {
+    buffer[i] = cell[i];
+  }
+}

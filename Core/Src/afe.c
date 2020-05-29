@@ -14,12 +14,42 @@
  * 
  */
 
+#include "main.h"
 #include "afe.h"
 #include <math.h>
+#include "stm32g4xx_ll_hrtim.h"
+
 #define ADC1_GPIO GPIO_PIN_0|GPIO_PIN_1
 #define ADC2_GPIO GPIO_PIN_6|GPIO_PIN_7
 #define ADC4_GPIO GPIO_PIN_12|GPIO_PIN_14;
 #define ADC5_GPIO GPIO_PIN_8|GPIO_PIN_9
+
+#define ADC_SAMPLE_LENGTH     (sample_paras.sample_length)
+#define ADC_BUFFER_BASE       CCMSRAM_BASE
+#define ADC_BUFFER_A          ((uint8_t*)(ADC_BUFFER_BASE))
+#define ADC_BUFFER_B          ((uint8_t*)(ADC_BUFFER_BASE + sample_paras.sample_length))
+#define ADC_BUFFER_C          ((uint8_t*)(ADC_BUFFER_BASE + sample_paras.sample_length * 2))
+#define ADC_BUFFER_D          ((uint8_t*)(ADC_BUFFER_BASE + sample_paras.sample_length * 3))
+
+
+/**
+ * @brief Sample parameters used by the current ADC.
+ * Changing this parameters and call corresponding function to load this parameters into sampling config.
+ * 
+ */
+sample_paras_t sample_paras = {0};
+/**
+ * @brief Sample configurations for five speed levels.
+ * @note  These values should be selected to make the hrtim and ADC run at the performance that the Scopen-App expects. 
+ *        These values are calculated based on the system frequency (input to HRTIM1) to be 170MHz. Make sure the system frequency is correct.  
+ */
+const sample_config_t sample_configs[] = {
+  {.timer_prescaler = HRTIM_PRESCALERRATIO_MUL32,  .timer_period = 362},        // 15MHz Sampling Speed
+  {.timer_prescaler = HRTIM_PRESCALERRATIO_MUL32,  .timer_period = 5434},       // 1MHz Sampling Speed   
+  {.timer_prescaler = HRTIM_PRESCALERRATIO_MUL8,  .timer_period = 13605},       // 100KHz Sampling Speed
+  {.timer_prescaler = HRTIM_PRESCALERRATIO_DIV1,  .timer_period = 17006},       // 10KHz Sampling Speed
+  {.timer_prescaler = HRTIM_PRESCALERRATIO_DIV1,  .timer_period = 17006}        // 10KHz Sampling Speed
+};
 
 DAC_HandleTypeDef hdac1;
 DAC_HandleTypeDef hdac3;
@@ -38,11 +68,10 @@ HRTIM_HandleTypeDef hhrtim1;
 
 OPAMP_HandleTypeDef hopamp3;
 
-uint8_t adc1Data[ADC_DATA_LENGTH];
-uint8_t adc2Data[ADC_DATA_LENGTH];
-uint8_t adc4Data[ADC_DATA_LENGTH];
-uint8_t adc5Data[ADC_DATA_LENGTH];
-
+// uint8_t adc1Data[ADC_DATA_LENGTH];
+// uint8_t adc2Data[ADC_DATA_LENGTH];
+// uint8_t adc4Data[ADC_DATA_LENGTH];
+// uint8_t adc5Data[ADC_DATA_LENGTH];
 
 /**
  * @brief Initializes all AFE peripherals
@@ -369,7 +398,6 @@ void afe_adc_initialize() {
     }
 }
 
-
 void afe_adc_hrtim_initialize(void)
 {
   __HAL_RCC_HRTIM1_CLK_ENABLE();
@@ -395,6 +423,7 @@ void afe_adc_hrtim_initialize(void)
     Error_Handler();
   }
   pADCTriggerCfg.UpdateSource = HRTIM_ADCTRIGGERUPDATE_MASTER;
+  // ADC triggers on master compared value 1.
   pADCTriggerCfg.Trigger = HRTIM_ADCTRIGGEREVENT13_MASTER_CMP1;
   if (HAL_HRTIM_ADCTriggerConfig(&hhrtim1, HRTIM_ADCTRIGGER_1, &pADCTriggerCfg) != HAL_OK)
   {
@@ -404,6 +433,7 @@ void afe_adc_hrtim_initialize(void)
   {
     Error_Handler();
   }
+  // ADC triggers on master compared value 3.
   pADCTriggerCfg.Trigger = HRTIM_ADCTRIGGEREVENT24_MASTER_CMP3;
   if (HAL_HRTIM_ADCTriggerConfig(&hhrtim1, HRTIM_ADCTRIGGER_2, &pADCTriggerCfg) != HAL_OK)
   {
@@ -413,6 +443,7 @@ void afe_adc_hrtim_initialize(void)
   {
     Error_Handler();
   }
+  // ADC triggers on master compared value 2.
   pADCTriggerCfg.Trigger = HRTIM_ADCTRIGGEREVENT13_MASTER_CMP2;
   if (HAL_HRTIM_ADCTriggerConfig(&hhrtim1, HRTIM_ADCTRIGGER_3, &pADCTriggerCfg) != HAL_OK)
   {
@@ -422,6 +453,7 @@ void afe_adc_hrtim_initialize(void)
   {
     Error_Handler();
   }
+  // ADC triggers on master period is reached.
   pADCTriggerCfg.Trigger = HRTIM_ADCTRIGGEREVENT24_MASTER_PERIOD;
   if (HAL_HRTIM_ADCTriggerConfig(&hhrtim1, HRTIM_ADCTRIGGER_4, &pADCTriggerCfg) != HAL_OK)
   {
@@ -431,8 +463,11 @@ void afe_adc_hrtim_initialize(void)
   {
     Error_Handler();
   }
+  // Here set the master period time.
   pTimeBaseCfg.Period = period;
+  // The repetition counter means after how many counter (reset) events, the interrupt will be triggered.
   pTimeBaseCfg.RepetitionCounter = 64;
+  // The prescaler value determines timer frequency.
   pTimeBaseCfg.PrescalerRatio = HRTIM_PRESCALERRATIO_DIV1;
   pTimeBaseCfg.Mode = HRTIM_MODE_CONTINUOUS;
   if (HAL_HRTIM_TimeBaseConfig(&hhrtim1, HRTIM_TIMERINDEX_MASTER, &pTimeBaseCfg) != HAL_OK)
@@ -459,6 +494,7 @@ void afe_adc_hrtim_initialize(void)
   {
     Error_Handler();
   }
+  // Here configures the 3 value compare registers.
   pCompareCfg.CompareValue = period/4;
   if (HAL_HRTIM_WaveformCompareConfig(&hhrtim1, HRTIM_TIMERINDEX_MASTER, HRTIM_COMPAREUNIT_1, &pCompareCfg) != HAL_OK)
   {
@@ -477,22 +513,75 @@ void afe_adc_hrtim_initialize(void)
 
 }
 
-
+/**
+ * @brief Start sampling. This function will recalibrate the ADCs first and then start.
+ * Sampling length will be configured inside this function.
+ */
 void afe_sampling_start() {
     //calibrates all ADCs and starts them in DMA mode
     HAL_ADCEx_Calibration_Start(&hadc1, ADC_DIFFERENTIAL_ENDED);
     HAL_ADCEx_Calibration_Start(&hadc2, ADC_DIFFERENTIAL_ENDED);
     HAL_ADCEx_Calibration_Start(&hadc4, ADC_DIFFERENTIAL_ENDED);
     HAL_ADCEx_Calibration_Start(&hadc5, ADC_DIFFERENTIAL_ENDED);
-    HAL_ADC_Start_DMA(&hadc1, adc1Data, ADC_DATA_LENGTH);
-    HAL_ADC_Start_DMA(&hadc2, adc2Data, ADC_DATA_LENGTH);
-    HAL_ADC_Start_DMA(&hadc4, adc4Data, ADC_DATA_LENGTH);
-    HAL_ADC_Start_DMA(&hadc5, adc5Data, ADC_DATA_LENGTH);
+    HAL_ADC_Start_DMA(&hadc1, ADC_BUFFER_A, ADC_SAMPLE_LENGTH);
+    HAL_ADC_Start_DMA(&hadc2, ADC_BUFFER_B, ADC_SAMPLE_LENGTH);
+    HAL_ADC_Start_DMA(&hadc4, ADC_BUFFER_C, ADC_SAMPLE_LENGTH);
+    HAL_ADC_Start_DMA(&hadc5, ADC_BUFFER_D, ADC_SAMPLE_LENGTH);
     HAL_HRTIM_SimpleBaseStart (&hhrtim1, HRTIM_TIMERINDEX_MASTER);
 }
 
 void afe_sampling_stop() {
   HAL_HRTIM_SimpleBaseStop(&hhrtim1, HRTIM_TIMERINDEX_MASTER);
+}
+
+bool afe_is_sampling_stopped() {
+  if(LL_HRTIM_TIM_IsCounterEnabled(&hhrtim1, LL_HRTIM_TIMER_MASTER))
+    return false;
+  true;
+}
+
+/**
+ * @brief Configure the sampling length and speed using this function.
+ * 
+ * @param index   The sampling speed index. The detailed sampling speed levels are predefined values.
+ * @param length  Sampling length determines after how many samples the pen should transmit the data to the software.
+ * @note  This function need to be called when the timer is off.
+ */
+void afe_set_sampling_paras(uint8_t index, uint32_t length) {
+  // Update the global sample parameters configuration.
+  sample_paras.sample_length = length;
+  sample_paras.speed_option = index;
+  
+  HRTIM_CompareCfgTypeDef compareCfg = {0};
+  HRTIM_TimeBaseCfgTypeDef timeCfg = {0};
+  
+  uint32_t sample_period = sample_configs[index].timer_period * 4;
+  uint32_t scaler = sample_configs[index].timer_prescaler;
+  
+  // There are 4 ADCs, so the total period should be multiply the sample period by 4.
+  timeCfg.Period = sample_period * 4;
+  timeCfg.PrescalerRatio = scaler;
+  // Use continuous mode. Reload the counter after period overflows.
+  timeCfg.Mode = HRTIM_MODE_CONTINUOUS;
+  // This value doesn't matter. Because we are not using interrupt.
+  timeCfg.RepetitionCounter = 64;
+  if (HAL_HRTIM_TimeBaseConfig(&hhrtim1, HRTIM_TIMERINDEX_MASTER, &timeCfg) != HAL_OK) {
+    Error_Handler();
+  }
+  
+  // Here configures the 3 value compare registers.
+  compareCfg.CompareValue = (uint32_t)(sample_period/4);
+  if (HAL_HRTIM_WaveformCompareConfig(&hhrtim1, HRTIM_TIMERINDEX_MASTER, HRTIM_COMPAREUNIT_1, &compareCfg) != HAL_OK) {
+    Error_Handler();
+  }
+  compareCfg.CompareValue = (uint32_t)(sample_period/2);
+  if (HAL_HRTIM_WaveformCompareConfig(&hhrtim1, HRTIM_TIMERINDEX_MASTER, HRTIM_COMPAREUNIT_2, &compareCfg) != HAL_OK) {
+    Error_Handler();
+  }
+  compareCfg.CompareValue = (uint32_t)(sample_period*3/4);
+  if (HAL_HRTIM_WaveformCompareConfig(&hhrtim1, HRTIM_TIMERINDEX_MASTER, HRTIM_COMPAREUNIT_3, &compareCfg) != HAL_OK) {
+    Error_Handler();
+  }
 }
 
 void afe_relay_control(bool on) {
@@ -599,3 +688,13 @@ void DMA2_Channel2_IRQHandler(void)
     afe_sampling_stop();
   }
 }
+
+/** REVIEW: Some design ideas: 
+ *  Need to create a global struct that stores the parameters.
+ *  Need to have a function to set the datalength and sampling frequency.
+ *  Before applying the new settings, need to check if it's the same as before. If it's same, don't stop the ADC for a better performance.
+ *  Operation sequence:
+ *  - Turn the ADC off first.
+ *  - Reconfigure the ADC.
+ *  - Turn the ADC on.
+ */
