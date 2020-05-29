@@ -13,7 +13,7 @@ static const uint16_t SCAN_LISTEN_PORT = 4445;
 static const uint16_t SCAN_SEND_PORT = 4446;
 static const uint16_t TCP_PORT_SEND = 6000;
 static const uint16_t TCP_PORT_RECIEVE = 7000;
-static const uint16_t SPI_SPEED = 1000000;
+static const uint16_t SPI_SPEED = 10000;
 //software to pen
 static const byte CMD_START_SAMPLE = 0x21;
 static const byte CMD_STOP_SAMPLE = 0x22;
@@ -43,7 +43,7 @@ IPAddress penIP;
 uint8_t CONNECTION_STATE = 0;
 const char *ssid = "Scopen";
 const char *password = "123456789";
-byte intFlag= 0;
+short int intFlag = 0;
 WiFiUDP udp;
 WiFiServer serverSend;
 WiFiServer serverRecieve;
@@ -71,8 +71,8 @@ void IRAM_ATTR flagReadADCData(void){
 
 void downStreamTask(void* pvParameters){
   while(true){
-  
-  if(intFlag){
+
+  if(intFlag==1){
     Serial.println("Something from SPI");
     if(!incoming.recievedHeader){
       readHeaderSPI(incoming.dataCount, incoming.dataType);
@@ -80,7 +80,7 @@ void downStreamTask(void* pvParameters){
         Serial.print("Recieved SPI HEADER: ");
         Serial.println(incoming.dataType, HEX);
         incoming.recievedHeader = true;
-        sendHeaderWIFI(incoming.dataCount, incoming.dataType);
+        //sendHeaderWIFI(incoming.dataCount, incoming.dataType);
         sendACKSPI();
       }
       else{
@@ -92,14 +92,14 @@ void downStreamTask(void* pvParameters){
       if(incoming.dataCount>MAX_SPI_BUFFER){
         incoming.msg = new byte[MAX_SPI_BUFFER];
         readMessageSPI(incoming.msg, MAX_SPI_BUFFER);
-        writeMessageWIFI(incoming.msg, MAX_SPI_BUFFER);
+        //writeMessageWIFI(incoming.msg, MAX_SPI_BUFFER);
         delete [] incoming.msg;
         incoming.dataCount -= MAX_SPI_BUFFER;
       }
       else{
         incoming.msg = new byte[incoming.dataCount];
         readMessageSPI(incoming.msg, incoming.dataCount);
-        writeMessageWIFI(incoming.msg, incoming.dataCount);
+        //writeMessageWIFI(incoming.msg, incoming.dataCount);
         delete [] incoming.msg;
         incoming.recievedHeader = false;
       }
@@ -107,6 +107,7 @@ void downStreamTask(void* pvParameters){
     }
     intFlag = 0;
   }
+  delay(1);
 }
   
 }
@@ -120,14 +121,14 @@ void setup()
     penIP = WiFi.softAPIP();
     Serial.println("AP IP address: ");
     Serial.println(penIP);
-    
+    xTaskCreatePinnedToCore(downStreamTask,"downStream",10000,NULL,0,NULL,taskCore);
     pinMode(SS_PIN, OUTPUT);
     digitalWrite(SS_PIN, HIGH);
     attachInterrupt(INTERRUPT_PIN, flagReadADCData,RISING);
     spi.begin(SCK_PIN,MISO_PIN,MOSI_PIN,SS_PIN);
    
     WiFi.onEvent(wifi_event_handler);
-    xTaskCreatePinnedToCore(downStreamTask,"downStream",10000,NULL,0,&downStreamTaskHandle,taskCore);
+    
     udp.begin(SCAN_LISTEN_PORT);
     delay(500);
 }
@@ -302,11 +303,11 @@ void readHeaderWIFI(uint32_t &dataSize, short int &dataType){
 void readHeaderSPI(uint32_t &spiDataSize, short int &spiDataType){
     byte header[HEADER_SIZE];
 
-    int del = 1;
+    int del = 100;
     spi.beginTransaction(SPISettings(SPI_SPEED,MSBFIRST,SPI_MODE0));
     digitalWrite(SS_PIN,LOW);
     delay(del);
-    spi.transferBytes(NULL,header,HEADER_SIZE);
+    spi.transfer(header,HEADER_SIZE);
     digitalWrite(SS_PIN,HIGH);
     delay(del);
     spi.endTransaction();
