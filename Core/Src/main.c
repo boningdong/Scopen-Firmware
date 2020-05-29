@@ -126,9 +126,16 @@ int main(void)
   communication_initialization();
   command_processor_init();
   touch_init();
+
+  uint8_t* sram1 = (uint8_t*) SRAM1_BASE;
+  for (int i = 0; i < 4000; i++) {
+    sram1[i] = i;
+  }
+
+  communication_transmit(sram1, 4000);
   
-  tasks_initialization();
-  osKernelStart();
+  // tasks_initialization();
+  // osKernelStart();
   /* USER CODE END 2 */
 
 

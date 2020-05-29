@@ -45,6 +45,9 @@ void communication_initialization() {
 
 void communication_transmit(uint8_t* buffer, uint16_t count) {
   HAL_SPI_Transmit_DMA(&hspi3, buffer, count);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, GPIO_PIN_SET);
+  HAL_Delay(1);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, GPIO_PIN_RESET);
 }
 
 void communication_receive(uint8_t* buffer, uint16_t count) {
@@ -338,8 +341,6 @@ void DMA1_Channel4_IRQHandler(void)
 {
   if(LL_DMA_IsActiveFlag_TC4(DMA1)) {
     //Triggers the ESP32 Interrupt
-    HAL_GPIO_WritePin(GPIOB,GPIO_PIN_13,GPIO_PIN_SET);
-    HAL_GPIO_WritePin(GPIOB,GPIO_PIN_13,GPIO_PIN_RESET);
     HAL_SPI_DMAStop(&hspi3);
   }
   HAL_DMA_IRQHandler(&hdma_spi3_tx);

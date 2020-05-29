@@ -32,6 +32,7 @@ typedef struct {
 } transfer_status_t;
 
 void communication_initialization();
+void communication_transmit(uint8_t* buffer, uint16_t count);
 void communication_transfer_message(uint8_t type, uint8_t* buffer, uint32_t length);
 ErrorStatus communication_uart_send(uint8_t* buffer, uint16_t size, uint32_t timeout);
 ErrorStatus communication_uart_receive(uint8_t* buffer, uint16_t size, uint32_t timeout);
