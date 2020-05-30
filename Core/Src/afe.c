@@ -536,9 +536,9 @@ void afe_sampling_stop() {
 }
 
 bool afe_is_sampling_stopped() {
-  if(LL_HRTIM_TIM_IsCounterEnabled(&hhrtim1, LL_HRTIM_TIMER_MASTER))
+  if(LL_HRTIM_TIM_IsCounterEnabled(HRTIM1, LL_HRTIM_TIMER_MASTER))
     return false;
-  true;
+  return true;
 }
 
 /**
