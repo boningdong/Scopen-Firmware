@@ -4,3 +4,4 @@ build/
 !.vscode/tasks.json
 !.vscode/c_cpp_properties.json
 .vscode/settings.json
+esp32_tests/.vscode/
