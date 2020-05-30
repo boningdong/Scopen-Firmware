@@ -17,6 +17,7 @@
 #include "main.h"
 #include "afe.h"
 #include <math.h>
+#include "sram.h"
 #include "stm32g4xx_ll_hrtim.h"
 #include "stm32g4xx_ll_dma.h"
 
@@ -25,12 +26,19 @@
 #define ADC4_GPIO GPIO_PIN_12|GPIO_PIN_14;
 #define ADC5_GPIO GPIO_PIN_8|GPIO_PIN_9
 
+/**
+ * @note Here if the ADC_BUFFER_BASE uses the SRAM_BANK_ADDRESS, which is the external SRAM.
+ * - In communication.c, should use hdma_spi3_tx.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD.
+ * - Also all the ADC DMAs should have MemDataAlignment = DMA_MDATAALIGN_HALFWORD.
+ * - The ADC Buffer should have uint16_t.
+ */ 
+
 #define ADC_SAMPLE_LENGTH     (sample_paras.sample_length)
-#define ADC_BUFFER_BASE       SRAM1_BASE
-#define ADC_BUFFER_A          ((uint8_t*)(ADC_BUFFER_BASE))
-#define ADC_BUFFER_B          ((uint8_t*)(ADC_BUFFER_BASE + sample_paras.sample_length))
-#define ADC_BUFFER_C          ((uint8_t*)(ADC_BUFFER_BASE + sample_paras.sample_length * 2))
-#define ADC_BUFFER_D          ((uint8_t*)(ADC_BUFFER_BASE + sample_paras.sample_length * 3))
+#define ADC_BUFFER_BASE       SRAM_BANK_ADDRESS
+#define ADC_BUFFER_A          ((uint16_t*)(ADC_BUFFER_BASE))
+#define ADC_BUFFER_B          ((uint16_t*)(ADC_BUFFER_BASE + sample_paras.sample_length * 1 * sizeof(uint16_t)))
+#define ADC_BUFFER_C          ((uint16_t*)(ADC_BUFFER_BASE + sample_paras.sample_length * 2 * sizeof(uint16_t)))
+#define ADC_BUFFER_D          ((uint16_t*)(ADC_BUFFER_BASE + sample_paras.sample_length * 3 * sizeof(uint16_t)))
 
 
 /**
@@ -190,7 +198,7 @@ void afe_adc_initialize() {
     hdma_adc1.Init.PeriphInc = DMA_PINC_DISABLE;
     hdma_adc1.Init.MemInc = DMA_MINC_ENABLE;
     hdma_adc1.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
-    hdma_adc1.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+    hdma_adc1.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
     hdma_adc1.Init.Mode = DMA_NORMAL;
     hdma_adc1.Init.Priority = DMA_PRIORITY_HIGH;
     if (HAL_DMA_Init(&hdma_adc1) != HAL_OK)
@@ -249,7 +257,7 @@ void afe_adc_initialize() {
     hdma_adc2.Init.PeriphInc = DMA_PINC_DISABLE;
     hdma_adc2.Init.MemInc = DMA_MINC_ENABLE;
     hdma_adc2.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
-    hdma_adc2.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+    hdma_adc2.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
     hdma_adc2.Init.Mode = DMA_NORMAL;
     hdma_adc2.Init.Priority = DMA_PRIORITY_HIGH;
     if (HAL_DMA_Init(&hdma_adc2) != HAL_OK)
@@ -304,7 +312,7 @@ void afe_adc_initialize() {
     hdma_adc4.Init.PeriphInc = DMA_PINC_DISABLE;
     hdma_adc4.Init.MemInc = DMA_MINC_ENABLE;
     hdma_adc4.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
-    hdma_adc4.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+    hdma_adc4.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
     hdma_adc4.Init.Mode = DMA_NORMAL;
     hdma_adc4.Init.Priority = DMA_PRIORITY_HIGH;
     if (HAL_DMA_Init(&hdma_adc4) != HAL_OK)
@@ -357,7 +365,7 @@ void afe_adc_initialize() {
     hdma_adc5.Init.PeriphInc = DMA_PINC_DISABLE;
     hdma_adc5.Init.MemInc = DMA_MINC_ENABLE;
     hdma_adc5.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
-    hdma_adc5.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+    hdma_adc5.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
     hdma_adc5.Init.Mode = DMA_NORMAL;
     hdma_adc5.Init.Priority = DMA_PRIORITY_HIGH;
     if (HAL_DMA_Init(&hdma_adc5) != HAL_OK)
