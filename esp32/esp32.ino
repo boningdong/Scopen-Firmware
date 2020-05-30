@@ -9,34 +9,58 @@
 #include <WiFiUdp.h>
 #include <SPI.h>
 
-
-static const uint16_t SPI_SPEED = 10000000;
+static const uint16_t SCAN_LISTEN_PORT = 4445;
+static const uint16_t SCAN_SEND_PORT = 4446;
+static const uint16_t TCP_PORT_SEND = 6000;
+static const uint16_t TCP_PORT_RECIEVE = 7000;
+static const uint16_t SPI_SPEED = 10000;
 //software to pen
-
+static const byte CMD_START_SAMPLE = 0x21;
+static const byte CMD_STOP_SAMPLE = 0x22;
+static const byte CMD_CHECK_BAT = 0x23;
+static const byte CMD_SET_VOLTAGE = 0x41;
+static const byte CMD_SET_SAMPLE_PARAS = 0x42;
+//pen to software
+static const byte CMD_DATA = 0x00;
+static const byte CMD_REPORT_BAT = 0x01;
+static const byte CMD_SWIPE_UP = 0x11;
+static const byte CMD_SWIPE_DOWN = 0x12;
+static const byte CMD_CHANGE_SEL = 0x13;
 
 static const int MISO_PIN = 13;
 static const int MOSI_PIN = 12;
 static const int SCK_PIN = 14;
 static const int SS_PIN =15;
 static const int INTERRUPT_PIN = 23;
-
+static const int HEADER_SIZE = 5;
+static const int HEADER_SIZE_FEILD = 4;
+static const int HEADER_TYPE_FIELD = 1;
 static const short int MAX_SPI_BUFFER = 4000;
-
-
+static const char SCAN_MESSAGE[] = "SCOPEN_SCAN";
+char scan_send_msg[1024] = "";
+IPAddress userIP;
+IPAddress penIP;
+uint8_t CONNECTION_STATE = 0;
+const char *ssid = "Scopen";
+const char *password = "123456789";
 short int intFlag = 0;
-
+WiFiUDP udp;
+WiFiServer serverSend;
+WiFiServer serverRecieve;
+WiFiClient clientSend;
+WiFiClient clientRecieve;
 
 const static int serialRXPin = 19;
 const static int serialTXPin = 22;
 SPIClass spi(HSPI);
-byte upStreamMsg [MAX_SPI_BUFFER];
+
 static int taskCore = 0;
 TaskHandle_t downStreamTaskHandle;
 struct upStream {
   uint32_t dataCount;
   short int dataType;
   bool recievedHeader = false;
-  
+  byte* msg;
 };
 upStream incoming;
 void IRAM_ATTR flagReadADCData(void){
@@ -45,11 +69,11 @@ void IRAM_ATTR flagReadADCData(void){
   
 }
 
-void upStreamTask(void* pvParameters){
+void downStreamTask(void* pvParameters){
   while(true){
 
   if(intFlag==1){
-//    Serial.println("Something from SPI");
+    Serial.println("Something from SPI");
     if(!incoming.recievedHeader){
       readHeaderSPI(incoming.dataCount, incoming.dataType);
       if(verifyCMDFromSTM(incoming.dataType)){
@@ -65,7 +89,7 @@ void upStreamTask(void* pvParameters){
       }
     }
     else{
-      while(incoming.dataCount>MAX_SPI_BUFFER){
+      if(incoming.dataCount>MAX_SPI_BUFFER){
         incoming.msg = new byte[MAX_SPI_BUFFER];
         readMessageSPI(incoming.msg, MAX_SPI_BUFFER);
         //writeMessageWIFI(incoming.msg, MAX_SPI_BUFFER);
@@ -114,6 +138,7 @@ void loop()
 {
     if(CONNECTION_STATE == 0){
       int packsize = udp.parsePacket();
+      char package_buffer[256];
       if(packsize!=0){
         String msg = udp.readString();
         Serial.println(msg);
@@ -180,6 +205,11 @@ bool verifyCMDFromSTM(const short int &dataType){
          || dataType == CMD_CHANGE_SEL;
 }
 
+bool verifyCMDFromUser(const short int &dataType){
+  return dataType == CMD_START_SAMPLE || dataType == CMD_STOP_SAMPLE
+         || dataType == CMD_CHECK_BAT || dataType == CMD_SET_VOLTAGE
+         || dataType == CMD_SET_SAMPLE_PARAS;
+}
 
 void sendHeaderUART(const uint32_t &dataSize, const short int &dataType){
   byte header[HEADER_SIZE];
@@ -189,7 +219,22 @@ void sendHeaderUART(const uint32_t &dataSize, const short int &dataType){
   waitForACKUART();
 }
 
+void sendHeaderWIFI(const uint32_t &dataSize, const short int &dataType){
+  byte header[HEADER_SIZE];
+  constructHeader(header,dataSize,dataType);
+  clientSend.write(header,HEADER_SIZE);
+  clientSend.flush();
+  waitForACKWIFI();
+}
 
+
+void constructHeader(byte* header, const uint32_t &dataSize, const short int &dataType){
+  header[3] = dataSize >> 32; 
+  header[2] = dataSize >> 40; 
+  header[1] = dataSize >> 48; 
+  header[0] = dataSize >> 56;
+  header[4] = dataType;
+}
 
 void writeMessageUART(const byte* msg, const uint32_t &dataLength){
   
@@ -200,7 +245,19 @@ void writeMessageUART(const byte* msg, const uint32_t &dataLength){
   waitForACKUART();
 }
 
+void writeMessageWIFI(const byte* msg, const uint32_t &dataLength){
+  Serial.println("Sending message");
+  Serial.print("Sent: ");
+  Serial.println(clientSend.write(msg, dataLength));
+  clientSend.flush();
+  waitForACKWIFI();
+}
 
+
+void sendACKWIFI(){
+  clientRecieve.write('A');
+  clientRecieve.flush();
+}
 
 void sendACKSPI(){
   int del = 1;
@@ -222,17 +279,35 @@ bool waitForACKUART(){
   return false;
 }
 
+bool waitForACKWIFI(){
+  while(!(clientSend.available()>0)){ //need timeout
+  }
 
+  if(clientSend.read() == (int)'A'){
+    Serial.println("Recieved ACK WIFI");
+    return true;
+  }
+  return false;
+}
 
-
+void readHeaderWIFI(uint32_t &dataSize, short int &dataType){
+    byte header[HEADER_SIZE];
+    Serial.print("Read: ");
+    Serial.println(clientRecieve.read(header,HEADER_SIZE));  
+    parseBigEndian(header,dataSize);
+    dataType = header[HEADER_SIZE-1];
+    Serial.print("Data size: "); Serial.println(dataSize);
+    Serial.print("Data type: "); Serial.println(dataType);
+}
 
 void readHeaderSPI(uint32_t &spiDataSize, short int &spiDataType){
-    int del = 1;
     byte header[HEADER_SIZE];
+
+    int del = 100;
     spi.beginTransaction(SPISettings(SPI_SPEED,MSBFIRST,SPI_MODE0));
     digitalWrite(SS_PIN,LOW);
     delay(del);
-    spi.transferBytes(NULL,header,HEADER_SIZE);
+    spi.transfer(header,HEADER_SIZE);
     digitalWrite(SS_PIN,HIGH);
     delay(del);
     spi.endTransaction();
@@ -256,4 +331,29 @@ void readMessageSPI(byte* msg, const uint32_t &spiDataLength){
   digitalWrite(SS_PIN,HIGH);
   delay(del);
   spi.endTransaction();
+}
+
+void readMessageWIFI(byte* msg, uint32_t dataSize){
+  while(!(clientRecieve.available()>0)){}
+  Serial.println("RecieveData");
+  clientRecieve.read(msg,dataSize);
+  sendACKWIFI(); 
+}
+
+void parseBigEndian(byte *input, uint32_t &output){
+  output =(input[0] << 24) | (input[1] << 16) | (input[2]<<8) | (input[3]);
+}
+
+void wifi_event_handler(WiFiEvent_t event)
+{
+  Serial.println("[WiFi Event]");
+  switch (event)
+  {
+  case SYSTEM_EVENT_AP_START:
+    Serial.println("WiFi access point started.");
+    break;
+  case SYSTEM_EVENT_AP_STACONNECTED:
+    Serial.println("Client connected.\n");
+
+  }
 }
