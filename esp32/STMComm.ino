@@ -4,21 +4,20 @@ bool verifyCMDFromSTM(const uint8_t &dataType){
          || dataType == CMD_CHANGE_SEL;
 }
 
-void sendHeaderSTM(const uint32_t &dataSize, const uint8_t &dataType){
+bool sendHeaderSTM(const uint32_t &dataSize, const uint8_t &dataType){
   uint8_t header[HEADER_SIZE];
   constructHeader(header,dataSize,dataType);
   Serial2.write(header,HEADER_SIZE);
   Serial2.flush();
-  waitForACKSTM();
+  return waitForACKSTM(10);
 }
 
 bool writeMessageSTM(const uint8_t* msg, const uint32_t &dataLength){
   
-  Serial.println("Sending message to STM");
-  Serial.print("Sent: ");
+  Serial.print("Sending message to STM: ");
   Serial.println(Serial2.write(msg, dataLength));
   Serial2.flush();
-  waitForACKSTM();
+  return waitForACKSTM(10);
 }
 
 void sendACKSTM(){
@@ -30,16 +29,17 @@ void sendACKSTM(){
   delay(del);
   digitalWrite(SS_PIN,HIGH);
   spi.endTransaction();
-  
   Serial.println("Sent ACK to STM");
 }
 
-bool waitForACKSTM(){
-  while(!(Serial2.available()>0)){} //need timeout
+bool waitForACKSTM(int timeout){
+  unsigned long sec = millis();
+  while(!(Serial2.available()>0)&& !((millis()-sec)>timeout)){} //need timeout
   if(Serial2.read() == (int) 'A'){
     Serial.println("Recieved ACK UART");
     return true;
   }
+  Serial.println("No ACK recieved from UART");
   return false;
 }
 
@@ -61,7 +61,7 @@ void readHeaderSTM(uint32_t &spiDataSize, uint8_t &spiDataType){
     Serial.print("Data type: "); Serial.println(spiDataType);
 }
 
-bool readMessageSTM(uint8_t* msg, const uint32_t &spiDataLength){
+void readMessageSTM(uint8_t* msg, const uint32_t &spiDataLength){
   int del = 1;
   spi.beginTransaction(SPISettings(SPI_SPEED,MSBFIRST,SPI_MODE0));
   digitalWrite(SS_PIN,LOW);
@@ -70,5 +70,4 @@ bool readMessageSTM(uint8_t* msg, const uint32_t &spiDataLength){
   digitalWrite(SS_PIN,HIGH);
   delay(del);
   spi.endTransaction();
-  return waitForACKSTM();
 }

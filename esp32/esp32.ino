@@ -33,6 +33,8 @@ static const uint16_t TCP_PORT_RECIEVE = 7000;
 
 static const short int MAX_SPI_BUFFER = 4096;
 static const char SCAN_MESSAGE[] = "SCOPEN_SCAN";
+static const int CONNECTION_TIMEOUT = 10;
+
 
 static const uint16_t SPI_SPEED = 10000000;
 static const int MISO_PIN = 13;
@@ -45,6 +47,7 @@ const static int serialTXPin = 22;
 const static int serialRXPin = 19;
 
 char scan_send_msg[1024] = "";
+int connection_time = 0;
 
 uint8_t CONNECTION_STATE = 0;
 const char *ssid = "Scopen";
@@ -53,18 +56,18 @@ uint8_t intFlag = 0;
 
 bool verifyCMDFromSTM(const uint8_t &dataType);
 bool writeMessageSTM(const uint8_t* msg, const uint32_t &dataLength);
-bool readMessageSTM(uint8_t* msg, const uint32_t &spiDataLength);
+void readMessageSTM(uint8_t* msg, const uint32_t &spiDataLength);
 
-void sendHeaderSTM(const uint32_t &dataSize, const uint8_t &dataType);
+bool sendHeaderSTM(const uint32_t &dataSize, const uint8_t &dataType);
 void sendACKSTM();
-bool waitForACKSTM();
+bool waitForACKSTM(int timeout);
 void readHeaderSTM(uint32_t &spiDataSize, uint8_t &spiDataType);
 
 void readMessageWIFI(uint8_t* msg, uint32_t dataSize);
 void readHeaderWIFI(uint32_t &dataSize, uint8_t &dataType);
 bool sendHeaderWIFI(const uint32_t &dataSize, const uint8_t &dataType);
 void sendACKWIFI();
-bool waitForACKWIFI();
+bool waitForACKWIFI(int timeout);
 bool writeMessageWIFI(const uint8_t* msg, const uint32_t &dataLength);
 bool verifyCMDFromUser(const uint8_t &dataType);
 bool udpListen();
@@ -99,7 +102,6 @@ void upStreamTask(void* pvParameters){
 
   if(intFlag){
     intFlag = 0;
-    Serial.println("Here");
     if(!incoming.recievedHeader){
       readHeaderSTM(incoming.dataCount, incoming.dataType);
       if(verifyCMDFromSTM(incoming.dataType)){
@@ -108,7 +110,8 @@ void upStreamTask(void* pvParameters){
         Serial.println(incoming.dataType, HEX);
         if(incoming.dataCount)
           incoming.recievedHeader = true;
-        //sendHeaderWIFI(incoming.dataCount, incoming.dataType);
+        if(CONNECTION_STATE == 2)
+          sendHeaderWIFI(incoming.dataCount, incoming.dataType);
       }
       else{
         Serial.println("Wrong header datatype sent from SPI");
@@ -121,6 +124,8 @@ void upStreamTask(void* pvParameters){
       while(incoming.dataCount && !intFlag){
         uint16_t readLength = incoming.dataCount > MAX_SPI_BUFFER ? MAX_SPI_BUFFER : incoming.dataCount;
         readMessageSTM(incoming.msg, readLength);
+        if(CONNECTION_STATE == 2)
+          writeMessageWIFI(incoming.msg,readLength);
         incoming.dataCount -= readLength;
         for(int i = 0; i < readLength; i++) {
           Serial.print(incoming.msg[i], HEX);
@@ -165,11 +170,16 @@ void loop()
     if(CONNECTION_STATE == 0){
       if(udpListen()){
         CONNECTION_STATE = 1;
+        connection_time = millis();
       }
     }
     else if(CONNECTION_STATE == 1){
       if(tcpStart()){
         CONNECTION_STATE = 2;
+      }
+      else if(millis() - connection_time > CONNECTION_TIMEOUT*1000){
+        CONNECTION_STATE = 0;
+        Serial.println("Failed to establish TCP Connection");
       }
     }
     else if(CONNECTION_STATE == 2){
@@ -181,10 +191,15 @@ void loop()
             if(verifyCMDFromUser(dataType)){
               sendACKWIFI();
               msg = new uint8_t[dataSize];
-              readMessageSTM(msg,dataSize);
-              sendACKSTM();
-              sendHeaderSTM(dataSize, dataType);
-              writeMessageSTM(msg, dataSize);
+              if(dataSize){
+                readMessageWIFI(msg,dataSize);
+                sendACKWIFI();
+                sendHeaderSTM(dataSize, dataType);
+                writeMessageSTM(msg, dataSize);
+              }
+              else{
+                sendHeaderSTM(dataSize, dataType);
+              }
               delete [] msg;
               }
               else{
@@ -192,11 +207,12 @@ void loop()
               }
             }
           }
+          
           CONNECTION_STATE = 3;
     }
     else if(CONNECTION_STATE == 3){
       tcpStop();
-      CONNECTION_STATE == 0;
+      CONNECTION_STATE = 0;
     }
 }
 

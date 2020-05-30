@@ -1,8 +1,7 @@
 void readMessageWIFI(uint8_t* msg, uint32_t dataSize){
   while(!(clientRecieve.available()>0)){}
-  Serial.println("RecieveData");
-  clientRecieve.read(msg,dataSize);
-  sendACKWIFI(); 
+  Serial.print("Recieved WIFI Data: ");
+  Serial.println(clientRecieve.read(msg,dataSize));
 }
 
 void readHeaderWIFI(uint32_t &dataSize, uint8_t &dataType){
@@ -20,17 +19,19 @@ bool sendHeaderWIFI(const uint32_t &dataSize, const uint8_t &dataType){
   constructHeader(header,dataSize,dataType);
   clientSend.write(header,HEADER_SIZE);
   clientSend.flush();
-  return waitForACKWIFI();
+  return waitForACKWIFI(10);
 }
 
-bool waitForACKWIFI(){
-  while(!(clientSend.available()>0)){ //need timeout
+bool waitForACKWIFI(int timeout){
+  unsigned long sec = millis();
+  while(!(clientSend.available()>0) && !((millis()-sec)>timeout)){ //need timeout
   }
 
   if(clientSend.read() == (int)'A'){
     Serial.println("Recieved ACK WIFI");
     return true;
   }
+  Serial.println("No ACK recieved WIFI");
   return false;
 }
 
@@ -44,7 +45,7 @@ bool writeMessageWIFI(const uint8_t* msg, const uint32_t &dataLength){
   Serial.print("Sent: ");
   Serial.println(clientSend.write(msg, dataLength));
   clientSend.flush();
-  return waitForACKWIFI();
+  return waitForACKWIFI(10);
 }
 
 bool verifyCMDFromUser(const uint8_t &dataType){
@@ -80,7 +81,7 @@ bool udpListen(){
 bool tcpStart(){
   clientRecieve = serverRecieve.available();
   clientSend = serverSend.available();
-  delay(100);
+  delay(10);
   return clientRecieve && clientSend;
 }
 void tcpStop(){
