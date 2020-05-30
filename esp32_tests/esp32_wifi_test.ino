@@ -3,9 +3,9 @@
 #include <SPI.h>
 
 #define DATSIZE 4
-#define DATA_LENGTH 120
+#define DATA_LENGTH 5
 #define BUFF_SIZE 4096
-#define SPI_SPEED 10000000
+#define SPI_SPEED 5000000
 
 
 //This tests the SPI on ESP32
@@ -16,6 +16,8 @@ const int MISOPin = 13;
 const int MOSIPin =  12;
 const int SCKPin = 14;
 const int slaveSelectPin = 15;
+
+int comm_count = 1;
 
 uint8_t data_buffer[BUFF_SIZE];
 
@@ -30,7 +32,7 @@ uint8_t readFlag = 0;
 
   
 void IRAM_ATTR flagReadADCData(void){
-  Serial.println("LOL");
+  Serial.println(comm_count);
   readFlag = 1;
 }
   
@@ -66,13 +68,15 @@ void loop()
       uint16_t read_length = left_length > BUFF_SIZE ? BUFF_SIZE : left_length;
       spi_read_size(read_length);
       for(int i = 0; i < read_length; i++) {
-        Serial.println(data_buffer[i]);
+        Serial.print(data_buffer[i], HEX);
+        Serial.print(' ');
         data_buffer[i] = 0;
       }
       left_length -= read_length;
-      Serial.print("Left length: ");
-      Serial.println(left_length);
     }
+    Serial.print('\n');
+    writeToMCU('A');
+    comm_count++;
   }
 
   /*

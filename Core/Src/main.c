@@ -128,39 +128,15 @@ int main(void)
   command_processor_init();
   touch_init();
   afe_initialize();
-  afe_set_sampling_paras(SAMPLE_SPEED_LOW, 20000);
-  afe_sampling_start();
   
-
-  uint8_t* sram1 = (uint8_t*) SRAM1_BASE;
-  for (int i = 0; i < 4000; i++) {
-    sram1[i] = i;
-  }
-
-  communication_transmit(sram1, 4000);
-  
-  // tasks_initialization();
-  // osKernelStart();
+  tasks_initialization();
+  osKernelStart();
   /* USER CODE END 2 */
 
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-    // /* USER CODE END WHILE */
-    // uint16_t count, lta, delta;
-    // for(int i = CH0; i <= CH6; i++) {
-    //   while(!iqs266_request_communication());
-    //   count = iqs266_read_channel_counts(i, true);
-    //   delta = iqs266_read_channel_delta(i, true);
-    //   lta = iqs266_read_channel_lta(i, false);
-    //   printf("[CH%d] count: %u    lta: %u    delta: %u\n", i, count, lta, delta);
-    // }
-    // printf("\n");
-    // HAL_Delay(1000);
-    /* USER CODE BEGIN 3 */
-  }
+  for(;;);
   /* USER CODE END 3 */
 }
 
