@@ -28,8 +28,10 @@ void sendACKSTM(){
   delay(del);
   spi.write('A');
   delay(del);
-  spi.endTransaction();
   digitalWrite(SS_PIN,HIGH);
+  spi.endTransaction();
+  
+  Serial.println("Sent ACK to STM");
 }
 
 bool waitForACKSTM(){

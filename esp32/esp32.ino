@@ -103,13 +103,12 @@ void upStreamTask(void* pvParameters){
     if(!incoming.recievedHeader){
       readHeaderSTM(incoming.dataCount, incoming.dataType);
       if(verifyCMDFromSTM(incoming.dataType)){
+        sendACKSTM();
         Serial.print("Recieved SPI HEADER: ");
         Serial.println(incoming.dataType, HEX);
         if(incoming.dataCount)
           incoming.recievedHeader = true;
         //sendHeaderWIFI(incoming.dataCount, incoming.dataType);
-        delay(100);
-        sendACKSTM();
       }
       else{
         Serial.println("Wrong header datatype sent from SPI");

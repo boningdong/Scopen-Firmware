@@ -58,8 +58,16 @@ void communication_receive(uint8_t* buffer, uint16_t count) {
   HAL_SPI_RECEIVE_DMA(&hspi3,buffer,count);
 }
 
+
+
 ErrorStatus communication_receive_block(uint8_t* buffer, uint16_t count, uint32_t timeout) {
   return HAL_SPI_Receive(&hspi3, buffer, count, timeout);
+}
+
+void communication_wait_ack(uint8_t* buffer){
+  while(*buffer !='A'){
+    communication_receive_block(buffer, 1, SPI_WAIT_ACK_TIMEOUT);
+  }
 }
 
 /**
@@ -85,8 +93,9 @@ void communication_transfer_message(uint8_t type, uint8_t* buffer, uint32_t leng
   osSignalWait(UNBLOCK_SIGNAL, osWaitForever);
   // Wait for the acknowledgement.
   // Need to make sure the tranmit is done. Or it will fuck up the data.
-  status = communication_receive_block(&ack, 1, SPI_WAIT_ACK_TIMEOUT);
-  if (status != SUCCESS || status != 'A') {
+  //status = communication_receive_block(&ack, 1, SPI_WAIT_ACK_TIMEOUT);
+  communication_wait_ack(&ack);
+  if (status != SUCCESS || ack != 'A') {
     // Release the shared resources and stop.
     printf("Didn't received valid header ACK\r\n");
     osSemaphoreRelease(sem_transfer_occupied);
@@ -101,7 +110,7 @@ void communication_transfer_message(uint8_t type, uint8_t* buffer, uint32_t leng
     // Wait for the acknowledgement;
     osSignalWait(UNBLOCK_SIGNAL, osWaitForever);
     status = communication_receive_block(&ack, 1, SPI_WAIT_ACK_TIMEOUT);
-    if (status != SUCCESS || status != 'A') {
+    if (status != SUCCESS || ack != 'A') {
       // Release the shared resources and stop.
       printf("Didn't received valid body ACK\r\n");
       osSemaphoreRelease(sem_transfer_occupied);
@@ -359,7 +368,9 @@ void DMA1_Channel4_IRQHandler(void)
   if(LL_DMA_IsActiveFlag_TC4(DMA1)) {
     //Triggers the ESP32 Interrupt
     HAL_SPI_DMAStop(&hspi3);
+    
     osSignalSet(send_cmd_task, UNBLOCK_SIGNAL);
+    
   }
   HAL_DMA_IRQHandler(&hdma_spi3_tx);
 }
