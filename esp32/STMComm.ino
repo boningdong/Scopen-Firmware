@@ -13,7 +13,6 @@ bool sendHeaderSTM(const uint32_t &dataSize, const uint8_t &dataType){
 }
 
 bool writeMessageSTM(const uint8_t* msg, const uint32_t &dataLength){
-  
   Serial.print("Sending message to STM: ");
   Serial.println(Serial2.write(msg, dataLength));
   Serial2.flush();
@@ -39,7 +38,10 @@ bool waitForACKSTM(int timeout){
     Serial.println("Recieved ACK UART");
     return true;
   }
-  Serial.println("No ACK recieved from UART");
+  else{
+    Serial.println("Wrong ACK recieved from UART");
+  }
+  
   return false;
 }
 
