@@ -72,24 +72,29 @@ bool udpListen(){
       udp.write((uint8_t*)scan_send_msg,1024);
       Serial.println(scan_send_msg);
       udp.endPacket();
-      serverRecieve.begin(TCP_PORT_RECIEVE);
-      serverSend.begin(TCP_PORT_SEND);
-      Serial.println("TCP Operation");
       return true;
     }
   }
   return false;
 }
-bool tcpStart(){
+
+void tcpStart(){
+  serverRecieve.begin(TCP_PORT_RECIEVE);
+  serverSend.begin(TCP_PORT_SEND);
+  Serial.println("TCP Sockets enabled");
+}
+
+bool checkTCPClient(){
   clientRecieve = serverRecieve.available();
   clientSend = serverSend.available();
-  delay(10);
+  delay(100);
   return clientRecieve && clientSend;
 }
+
 void tcpStop(){
   clientRecieve.stop();
   clientSend.stop();
-  Serial.println("Client disconnected");
+  Serial.println("TCP Socket stopped");
   serverRecieve.close();
   serverSend.close();
 }

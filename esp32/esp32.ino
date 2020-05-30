@@ -71,8 +71,9 @@ bool waitForACKWIFI(int timeout);
 bool writeMessageWIFI(const uint8_t* msg, const uint32_t &dataLength);
 bool verifyCMDFromUser(const uint8_t &dataType);
 bool udpListen();
-bool tcpStart();
+void tcpStart();
 void tcpStop();
+bool checkTCPClient();
 
 struct upStream {
   uint32_t dataCount;
@@ -110,7 +111,7 @@ void upStreamTask(void* pvParameters){
         Serial.println(incoming.dataType, HEX);
         if(incoming.dataCount)
           incoming.recievedHeader = true;
-        if(CONNECTION_STATE == 2)
+        if(CONNECTION_STATE == 1)
           sendHeaderWIFI(incoming.dataCount, incoming.dataType);
       }
       else{
@@ -124,7 +125,7 @@ void upStreamTask(void* pvParameters){
       while(incoming.dataCount && !intFlag){
         uint16_t readLength = incoming.dataCount > MAX_SPI_BUFFER ? MAX_SPI_BUFFER : incoming.dataCount;
         readMessageSTM(incoming.msg, readLength);
-        if(CONNECTION_STATE == 2)
+        if(CONNECTION_STATE == 1)
           writeMessageWIFI(incoming.msg,readLength);
         incoming.dataCount -= readLength;
         for(int i = 0; i < readLength; i++) {
@@ -158,96 +159,50 @@ void setup()
     attachInterrupt(INTERRUPT_PIN, flagReadADCData,RISING);
     spi.begin(SCK_PIN,MISO_PIN,MOSI_PIN,SS_PIN);
    
-    WiFi.onEvent(wifi_event_handler);
-    
+    WiFi.onEvent(wifi_event_handler);  
     udp.begin(SCAN_LISTEN_PORT);
+    tcpStart();
     delay(500);
 }
 
-
 void loop()
-{
-    if(CONNECTION_STATE == 0){
-      if(udpListen()){
-        CONNECTION_STATE = 1;
-        connection_time = millis();
-      }
+{   
+    if(udpListen()){
+      Serial.println("Recieved Scopen message");
+      delay(10);
     }
-    else if(CONNECTION_STATE == 1){
-      if(tcpStart()){
-        CONNECTION_STATE = 2;
-      }
-      else if(millis() - connection_time > CONNECTION_TIMEOUT*1000){
-        CONNECTION_STATE = 0;
-        Serial.println("Failed to establish TCP Connection");
-      }
-    }
-    else if(CONNECTION_STATE == 2){
+    if(checkTCPClient()){
+      CONNECTION_STATE = 1;
       Serial.println("Connected");
       uint32_t dataSize; uint8_t dataType; byte* msg;
       while(clientSend.connected()&&clientRecieve.connected()){
-          if(clientRecieve.available()==HEADER_SIZE){
-            readHeaderWIFI(dataSize, dataType);
-            if(verifyCMDFromUser(dataType)){
+        if(clientRecieve.available()==HEADER_SIZE){
+          readHeaderWIFI(dataSize, dataType);
+          if(verifyCMDFromUser(dataType)){
+            sendACKWIFI();
+            msg = new uint8_t[dataSize];
+            if(dataSize){
+              readMessageWIFI(msg,dataSize);
               sendACKWIFI();
-              msg = new uint8_t[dataSize];
-              if(dataSize){
-                readMessageWIFI(msg,dataSize);
-                sendACKWIFI();
-                sendHeaderSTM(dataSize, dataType);
-                writeMessageSTM(msg, dataSize);
-              }
-              else{
-                sendHeaderSTM(dataSize, dataType);
-              }
-              delete [] msg;
-              }
-              else{
-                Serial.println("Wrong header dataType recieved from WIFI"); 
-              }
+              sendHeaderSTM(dataSize, dataType);
+              writeMessageSTM(msg, dataSize);
+            }
+            else{
+              sendHeaderSTM(dataSize, dataType);
+            }
+            delete [] msg;
+            }
+            else{
+              Serial.println("Wrong header dataType recieved from WIFI"); 
             }
           }
-          
-          CONNECTION_STATE = 3;
+        }
+        Serial.println("TCP Client disconnected");               
     }
-    else if(CONNECTION_STATE == 3){
-      tcpStop();
+    else{
       CONNECTION_STATE = 0;
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 void wifi_event_handler(WiFiEvent_t event)
 {
