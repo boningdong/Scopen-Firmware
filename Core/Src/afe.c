@@ -26,7 +26,7 @@
 #define ADC5_GPIO GPIO_PIN_8|GPIO_PIN_9
 
 #define ADC_SAMPLE_LENGTH     (sample_paras.sample_length)
-#define ADC_BUFFER_BASE       CCMSRAM_BASE
+#define ADC_BUFFER_BASE       SRAM1_BASE
 #define ADC_BUFFER_A          ((uint8_t*)(ADC_BUFFER_BASE))
 #define ADC_BUFFER_B          ((uint8_t*)(ADC_BUFFER_BASE + sample_paras.sample_length))
 #define ADC_BUFFER_C          ((uint8_t*)(ADC_BUFFER_BASE + sample_paras.sample_length * 2))
@@ -48,8 +48,8 @@ const sample_config_t sample_configs[] = {
   {.timer_prescaler = HRTIM_PRESCALERRATIO_MUL32,  .timer_period = 362},        // 15MHz Sampling Speed
   {.timer_prescaler = HRTIM_PRESCALERRATIO_MUL32,  .timer_period = 5434},       // 1MHz Sampling Speed   
   {.timer_prescaler = HRTIM_PRESCALERRATIO_MUL8,  .timer_period = 13605},       // 100KHz Sampling Speed
-  {.timer_prescaler = HRTIM_PRESCALERRATIO_DIV1,  .timer_period = 17006},       // 10KHz Sampling Speed
-  {.timer_prescaler = HRTIM_PRESCALERRATIO_DIV1,  .timer_period = 17006}        // 10KHz Sampling Speed
+  {.timer_prescaler = HRTIM_PRESCALERRATIO_DIV2,  .timer_period = 8503},       // 10KHz Sampling Speed
+  {.timer_prescaler = HRTIM_PRESCALERRATIO_DIV2,  .timer_period = 8503}        // 10KHz Sampling Speed
 };
 
 DAC_HandleTypeDef hdac1;
@@ -229,7 +229,7 @@ void afe_adc_initialize() {
     sConfig.Channel = ADC_CHANNEL_1;
     sConfig.Rank = ADC_REGULAR_RANK_1;
     sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
-    sConfig.SingleDiff = ADC_SINGLE_ENDED;
+    sConfig.SingleDiff = ADC_DIFFERENTIAL_ENDED;
     sConfig.OffsetNumber = ADC_OFFSET_NONE;
     sConfig.Offset = 0;
     if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
@@ -282,7 +282,7 @@ void afe_adc_initialize() {
     sConfig.Channel = ADC_CHANNEL_3;
     sConfig.Rank = ADC_REGULAR_RANK_1;
     sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
-    sConfig.SingleDiff = ADC_SINGLE_ENDED;
+    sConfig.SingleDiff = ADC_DIFFERENTIAL_ENDED;
     sConfig.OffsetNumber = ADC_OFFSET_NONE;
     sConfig.Offset = 0;
     if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
@@ -337,7 +337,7 @@ void afe_adc_initialize() {
     sConfig.Channel = ADC_CHANNEL_3;
     sConfig.Rank = ADC_REGULAR_RANK_1;
     sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
-    sConfig.SingleDiff = ADC_SINGLE_ENDED;
+    sConfig.SingleDiff = ADC_DIFFERENTIAL_ENDED;
     sConfig.OffsetNumber = ADC_OFFSET_NONE;
     sConfig.Offset = 0;
     if (HAL_ADC_ConfigChannel(&hadc4, &sConfig) != HAL_OK)
@@ -390,7 +390,7 @@ void afe_adc_initialize() {
     sConfig.Channel = ADC_CHANNEL_1;
     sConfig.Rank = ADC_REGULAR_RANK_1;
     sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
-    sConfig.SingleDiff =ADC_SINGLE_ENDED;
+    sConfig.SingleDiff =ADC_DIFFERENTIAL_ENDED;
     sConfig.OffsetNumber = ADC_OFFSET_NONE;
     sConfig.Offset = 0;
     if (HAL_ADC_ConfigChannel(&hadc5, &sConfig) != HAL_OK)
@@ -556,7 +556,7 @@ void afe_set_sampling_paras(uint8_t index, uint32_t length) {
   HRTIM_CompareCfgTypeDef compareCfg = {0};
   HRTIM_TimeBaseCfgTypeDef timeCfg = {0};
   
-  uint32_t sample_period = sample_configs[index].timer_period * 4;
+  uint32_t sample_period = sample_configs[index].timer_period;
   uint32_t scaler = sample_configs[index].timer_prescaler;
   
   // There are 4 ADCs, so the total period should be multiply the sample period by 4.
@@ -571,15 +571,15 @@ void afe_set_sampling_paras(uint8_t index, uint32_t length) {
   }
   
   // Here configures the 3 value compare registers.
-  compareCfg.CompareValue = (uint32_t)(sample_period/4);
+  compareCfg.CompareValue = (uint32_t)(sample_period);
   if (HAL_HRTIM_WaveformCompareConfig(&hhrtim1, HRTIM_TIMERINDEX_MASTER, HRTIM_COMPAREUNIT_1, &compareCfg) != HAL_OK) {
     Error_Handler();
   }
-  compareCfg.CompareValue = (uint32_t)(sample_period/2);
+  compareCfg.CompareValue = (uint32_t)(sample_period * 2);
   if (HAL_HRTIM_WaveformCompareConfig(&hhrtim1, HRTIM_TIMERINDEX_MASTER, HRTIM_COMPAREUNIT_2, &compareCfg) != HAL_OK) {
     Error_Handler();
   }
-  compareCfg.CompareValue = (uint32_t)(sample_period*3/4);
+  compareCfg.CompareValue = (uint32_t)(sample_period * 3);
   if (HAL_HRTIM_WaveformCompareConfig(&hhrtim1, HRTIM_TIMERINDEX_MASTER, HRTIM_COMPAREUNIT_3, &compareCfg) != HAL_OK) {
     Error_Handler();
   }
