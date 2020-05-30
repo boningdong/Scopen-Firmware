@@ -53,6 +53,8 @@ Core/Src/led.c \
 Core/Src/system_stm32g4xx.c \
 Src/stm32g4xx_hal_timebase_tim.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_gpio.c \
+Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_dac.c \
+Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_opamp.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_adc.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_adc_ex.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_ll_adc.c \

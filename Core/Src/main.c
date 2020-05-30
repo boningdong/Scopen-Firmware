@@ -33,6 +33,7 @@
 #include "sthreads.h"
 #include "periph/iqs266.h"
 #include "cmsis_os.h"
+#include "afe.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -126,6 +127,10 @@ int main(void)
   communication_initialization();
   command_processor_init();
   touch_init();
+  afe_initialize();
+  afe_set_sampling_paras(SAMPLE_SPEED_LOW, 20000);
+  afe_sampling_start();
+  
 
   uint8_t* sram1 = (uint8_t*) SRAM1_BASE;
   for (int i = 0; i < 4000; i++) {
