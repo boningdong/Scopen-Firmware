@@ -70,7 +70,6 @@ void command_processor_init() {
  *          sem_send_slots to make sure there are avaliable spaces.
  */
 void command_send_enqueue(command_t cmd) {
-  osSemaphoreWait(sem_send_slots, osWaitForever);
   uint8_t index = send_commands_buff.tail_index;
   send_commands_buff.commands[index] = cmd;
   index += 1;

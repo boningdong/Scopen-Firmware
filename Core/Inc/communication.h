@@ -12,6 +12,10 @@
 #ifndef __COMMUNICATION_H__
 #define __COMMUNICATION_H__
 
+/**
+ * @note the MAX_BUFFER_SIZE should have the same size as the ESP side.
+ * 
+ */
 #define MAX_SPI_BUFFER_SIZE 4096
 #define HEADER_SIZE 5
 #define HEADER_SIZE_FIELD 4

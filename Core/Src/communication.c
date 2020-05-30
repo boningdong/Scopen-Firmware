@@ -14,11 +14,15 @@
 #include "cmsis_os.h"
 #include "commands.h"
 #include "stm32g4xx_ll_dma.h"
+#include "sthreads.h"
 #include <stdio.h>
+
+#define SPI_DMA_MEMWIDTH (sizeof(uint16_t))
 
 static void _init_spi();
 static void _init_uart();
 static void _make_header(uint8_t* header, uint8_t type, uint32_t length);
+static void _make_header16(uint16_t* header, uint8_t type, uint32_t length);
 static void _init_transfer_semaphore();
 
 UART_HandleTypeDef huart1;
@@ -63,21 +67,24 @@ ErrorStatus communication_receive_block(uint8_t* buffer, uint16_t count, uint32_
  *        
  * @param type    Command type. Defined in the commands.h
  * @param buffer  Payload of the message. Can be address from SRAM or from any buffer.
- * @param length  Payload transfer length.
+ * @param length  Payload transfer length. Here the length is not bytes. But how many data elements.
  */
 void communication_transfer_message(uint8_t type, uint8_t* buffer, uint32_t length) {
   // REVIEW: May need to change this function to return a boolean status.
   ErrorStatus status;
   uint8_t ack = 0;
   // Make the header of the communication.
-  uint8_t header[HEADER_SIZE];
-  _make_header(header, type, length);
-  
+  // Need to use uint16 because the DMA will read 16 bits each time.
+  uint16_t header[HEADER_SIZE];
+  _make_header16(header, type, length);
+
   osSemaphoreWait(sem_transfer_occupied, osWaitForever);
   // Transfer the header of the data.
-  communication_transmit(header, HEADER_SIZE);
+  communication_transmit(header, HEADER_SIZE * SPI_DMA_MEMWIDTH);
+  // Wait to make sure the tranmission is done before waiting for the acknowledgement. Or it may fuck up the data.
+  osSignalWait(UNBLOCK_SIGNAL, osWaitForever);
   // Wait for the acknowledgement.
-  
+  // Need to make sure the tranmit is done. Or it will fuck up the data.
   status = communication_receive_block(&ack, 1, SPI_WAIT_ACK_TIMEOUT);
   if (status != SUCCESS || status != 'A') {
     // Release the shared resources and stop.
@@ -90,8 +97,9 @@ void communication_transfer_message(uint8_t type, uint8_t* buffer, uint32_t leng
   while (length) {
     // Transfer the body
     uint16_t transfer_size = (length <= MAX_SPI_BUFFER_SIZE) ? length : MAX_SPI_BUFFER_SIZE;
-    communication_transmit(buffer, transfer_size);
+    communication_transmit(buffer, transfer_size * SPI_DMA_MEMWIDTH);
     // Wait for the acknowledgement;
+    osSignalWait(UNBLOCK_SIGNAL, osWaitForever);
     status = communication_receive_block(&ack, 1, SPI_WAIT_ACK_TIMEOUT);
     if (status != SUCCESS || status != 'A') {
       // Release the shared resources and stop.
@@ -151,6 +159,15 @@ static void _make_header(uint8_t* header, uint8_t type, uint32_t length) {
     header[i] = (length >> (sizeof(uint8_t) * shift_bytes)) & 0xFF;
   }
 }
+
+static void _make_header16(uint16_t* header, uint8_t type, uint32_t length) {
+  header[HEADER_SIZE - 1] = type;
+  for (uint8_t i = 0; i < HEADER_SIZE_FIELD; i++) {
+    uint8_t shift_bytes = HEADER_SIZE_FIELD - i - 1;
+    header[i] = (length >> (sizeof(uint8_t) * shift_bytes)) & 0xFF;
+  }
+}
+
 /**
  * @brief Initialize the tranfer occupied semaphore so that it can accept one token.
  * 
@@ -207,13 +224,6 @@ static void _init_spi() {
   
   /* SPI3 DMA Init */
   /* SPI3_RX Init */
-  
-  HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel3_IRQn);
-
-  HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
-
   hdma_spi3_rx.Instance = DMA1_Channel3;
   hdma_spi3_rx.Init.Request = DMA_REQUEST_SPI3_RX;
   hdma_spi3_rx.Init.Direction = DMA_PERIPH_TO_MEMORY;
@@ -265,6 +275,12 @@ static void _init_spi() {
   {
       Error_Handler();
   }
+
+  HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, 8, 8);
+  HAL_NVIC_EnableIRQ(DMA1_Channel3_IRQn);
+
+  HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 8, 8);
+  HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
 }
 
 
@@ -343,6 +359,7 @@ void DMA1_Channel4_IRQHandler(void)
   if(LL_DMA_IsActiveFlag_TC4(DMA1)) {
     //Triggers the ESP32 Interrupt
     HAL_SPI_DMAStop(&hspi3);
+    osSignalSet(send_cmd_task, UNBLOCK_SIGNAL);
   }
   HAL_DMA_IRQHandler(&hdma_spi3_tx);
 }
