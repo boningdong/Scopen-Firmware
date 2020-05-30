@@ -22,14 +22,14 @@ bool writeMessageSTM(const uint8_t* msg, const uint32_t &dataLength){
 }
 
 void sendACKSTM(){
-  int del = 1;
+  int del = 10;
   spi.beginTransaction(SPISettings(SPI_SPEED,MSBFIRST,SPI_MODE0));
   digitalWrite(SS_PIN,LOW);
   delay(del);
   spi.write('A');
-  digitalWrite(SS_PIN,HIGH);
   delay(del);
   spi.endTransaction();
+  digitalWrite(SS_PIN,HIGH);
 }
 
 bool waitForACKSTM(){
@@ -44,20 +44,16 @@ bool waitForACKSTM(){
 void readHeaderSTM(uint32_t &spiDataSize, uint8_t &spiDataType){
     uint8_t header[HEADER_SIZE];
 
-    int del = 100;
+    int del = 1;
     spi.beginTransaction(SPISettings(SPI_SPEED,MSBFIRST,SPI_MODE0));
     digitalWrite(SS_PIN,LOW);
     delay(del);
-    spi.transfer(header,HEADER_SIZE);
+    spi.transferBytes(NULL,header,HEADER_SIZE);
     digitalWrite(SS_PIN,HIGH);
     delay(del);
     spi.endTransaction();
-    
-    Serial.println("SPI Read: ");
-        for(int i = 0; i<HEADER_SIZE; i++){
-      Serial.println(header[i]);
-    }
-//    parseBigEndian(header, spiDataSize);
+
+    parseBigEndian(header, spiDataSize);
     spiDataType = header[HEADER_SIZE-1];
     Serial.print("Data size: "); Serial.println(spiDataSize);
     Serial.print("Data type: "); Serial.println(spiDataType);

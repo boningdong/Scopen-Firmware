@@ -34,7 +34,7 @@ static const uint16_t TCP_PORT_RECIEVE = 7000;
 static const short int MAX_SPI_BUFFER = 4096;
 static const char SCAN_MESSAGE[] = "SCOPEN_SCAN";
 
-static const uint16_t SPI_SPEED = 10000;
+static const uint16_t SPI_SPEED = 10000000;
 static const int MISO_PIN = 13;
 static const int MOSI_PIN = 12;
 static const int SCK_PIN = 14;
@@ -97,16 +97,18 @@ void IRAM_ATTR flagReadADCData(void){
 void upStreamTask(void* pvParameters){
   while(true){
 
-  if(intFlag==1){
+  if(intFlag){
     intFlag = 0;
-    Serial.println("Something from SPI");
+    Serial.println("Here");
     if(!incoming.recievedHeader){
       readHeaderSTM(incoming.dataCount, incoming.dataType);
       if(verifyCMDFromSTM(incoming.dataType)){
         Serial.print("Recieved SPI HEADER: ");
         Serial.println(incoming.dataType, HEX);
-        incoming.recievedHeader = true;
+        if(incoming.dataCount)
+          incoming.recievedHeader = true;
         //sendHeaderWIFI(incoming.dataCount, incoming.dataType);
+        delay(100);
         sendACKSTM();
       }
       else{
@@ -115,6 +117,8 @@ void upStreamTask(void* pvParameters){
       }
     }
     else{
+      Serial.print("Data: ");
+      Serial.println(incoming.dataCount);
       while(incoming.dataCount && !intFlag){
         uint16_t readLength = incoming.dataCount > MAX_SPI_BUFFER ? MAX_SPI_BUFFER : incoming.dataCount;
         readMessageSTM(incoming.msg, readLength);
@@ -124,8 +128,10 @@ void upStreamTask(void* pvParameters){
           Serial.print(' ');
           incoming.msg[i] = 0;
         }
+        sendACKSTM();
       }
-      sendACKSTM();
+      incoming.recievedHeader = false;
+      
     }
   }
   delay(1);
