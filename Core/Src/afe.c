@@ -18,6 +18,7 @@
 #include "afe.h"
 #include <math.h>
 #include "stm32g4xx_ll_hrtim.h"
+#include "stm32g4xx_ll_dma.h"
 
 #define ADC1_GPIO GPIO_PIN_0|GPIO_PIN_1
 #define ADC2_GPIO GPIO_PIN_6|GPIO_PIN_7
@@ -523,10 +524,10 @@ void afe_sampling_start() {
     HAL_ADCEx_Calibration_Start(&hadc2, ADC_DIFFERENTIAL_ENDED);
     HAL_ADCEx_Calibration_Start(&hadc4, ADC_DIFFERENTIAL_ENDED);
     HAL_ADCEx_Calibration_Start(&hadc5, ADC_DIFFERENTIAL_ENDED);
-    HAL_ADC_Start_DMA(&hadc1, ADC_BUFFER_A, ADC_SAMPLE_LENGTH);
-    HAL_ADC_Start_DMA(&hadc2, ADC_BUFFER_B, ADC_SAMPLE_LENGTH);
-    HAL_ADC_Start_DMA(&hadc4, ADC_BUFFER_C, ADC_SAMPLE_LENGTH);
-    HAL_ADC_Start_DMA(&hadc5, ADC_BUFFER_D, ADC_SAMPLE_LENGTH);
+    HAL_ADC_Start_DMA(&hadc1, ADC_BUFFER_A, ADC_SAMPLE_LENGTH / 4);
+    HAL_ADC_Start_DMA(&hadc2, ADC_BUFFER_B, ADC_SAMPLE_LENGTH / 4);
+    HAL_ADC_Start_DMA(&hadc4, ADC_BUFFER_C, ADC_SAMPLE_LENGTH / 4);
+    HAL_ADC_Start_DMA(&hadc5, ADC_BUFFER_D, ADC_SAMPLE_LENGTH / 4);
     HAL_HRTIM_SimpleBaseStart (&hhrtim1, HRTIM_TIMERINDEX_MASTER);
 }
 
@@ -657,36 +658,35 @@ void afe_set_offset() {
 
 void DMA1_Channel1_IRQHandler(void)
 {
-  HAL_DMA_IRQHandler(&hdma_adc1);
-  if(__HAL_DMA_GET_COUNTER(&hdma_adc1) == 0){//adc1 checks if all items in buffer were filled
+  if(LL_DMA_IsActiveFlag_TC1(DMA1) && !LL_DMA_IsActiveFlag_HT1(DMA1)){//adc1 checks if all items in buffer were filled
     HAL_ADC_Stop_DMA(&hadc1);
   }
+  HAL_DMA_IRQHandler(&hdma_adc1);
 }
 
 void DMA1_Channel2_IRQHandler(void)
 {
-  HAL_DMA_IRQHandler(&hdma_adc4);
-  if(__HAL_DMA_GET_COUNTER(&hdma_adc4) == 0){//adc4
+  if(LL_DMA_IsActiveFlag_TC2(DMA1) && !LL_DMA_IsActiveFlag_HT2(DMA1)){//adc4
     HAL_ADC_Stop_DMA(&hadc4);
   }
+  HAL_DMA_IRQHandler(&hdma_adc4);
 }
 
 void DMA2_Channel1_IRQHandler(void)
 {
-  HAL_DMA_IRQHandler(&hdma_adc2);
-  if(__HAL_DMA_GET_COUNTER(&hdma_adc2)==0){ //adc2
+  if(LL_DMA_IsActiveFlag_TC1(DMA2) && !LL_DMA_IsActiveFlag_HT1(DMA2)){ //adc2
     HAL_ADC_Stop_DMA(&hadc2);
   }
+  HAL_DMA_IRQHandler(&hdma_adc2);
 }
 //This is last ADC done, so here is where we stop the timer and start transmitting data
 void DMA2_Channel2_IRQHandler(void)
 {
-  HAL_DMA_IRQHandler(&hdma_adc5);
-  
-  if(__HAL_DMA_GET_COUNTER(&hdma_adc5) == 0){ //adc5
+  if(LL_DMA_IsActiveFlag_TC2(DMA2) && !LL_DMA_IsActiveFlag_HT2(DMA2)){ //adc5
     HAL_ADC_Stop_DMA(&hadc5);
     afe_sampling_stop();
   }
+  HAL_DMA_IRQHandler(&hdma_adc5);
 }
 
 /** REVIEW: Some design ideas: 
