@@ -30,7 +30,7 @@ SPI_HandleTypeDef hspi3;
 DMA_HandleTypeDef hdma_spi3_rx;
 DMA_HandleTypeDef hdma_spi3_tx;
 
-osMutexId mutex_transfer_done;
+osSemaphoreId sem_transfer_done;
 osSemaphoreId sem_transfer_occupied;
 
 /**
@@ -117,7 +117,7 @@ void communication_transfer_message(uint8_t type, uint8_t* buffer, uint32_t leng
   // Transfer the header of the data.
   communication_transmit((uint8_t*)header, HEADER_SIZE * SPI_DMA_MEMWIDTH);
   // Wait to make sure the tranmission is done before waiting for the acknowledgement. Or it may fuck up the data.
-  osMutexWait(mutex_transfer_done, osWaitForever);
+  osMutexWait(sem_transfer_done, osWaitForever);
   // Wait for the acknowledgement.
   // Note: Need to make sure the tranmit is done. Or it will fuck up the data.
   //status = communication_receive_block(&ack, 1, SPI_WAIT_ACK_TIMEOUT);
@@ -136,7 +136,7 @@ void communication_transfer_message(uint8_t type, uint8_t* buffer, uint32_t leng
     communication_transmit(buffer, transfer_size * SPI_DMA_MEMWIDTH);
     // Wait for the acknowledgement;
     // NOTE: Need to make sure the tranmit is done. Or it will fuck up the data.
-    osMutexWait(mutex_transfer_done, osWaitForever);
+    osMutexWait(sem_transfer_done, osWaitForever);
     status = communication_wait_ack(&ack);
     if (status != SUCCESS) {
       // Release the shared resources and stop.
@@ -212,8 +212,8 @@ static void _make_header16(uint16_t* header, uint8_t type, uint32_t length) {
  * 
  */
 static void _init_transfer_locks() {
-  osMutexDef(MutexSendDone);
-  mutex_transfer_done = osMutexCreate(osMutex(MutexSendDone));
+  osSemaphoreDef(SemSendDone);
+  sem_transfer_done = osSemaphoreCreate(osSemaphore(SemSendDone), 0);
   osSemaphoreDef(SemSpiBusy);
   sem_transfer_occupied = osSemaphoreCreate(osSemaphore(SemSpiBusy), 1);
   printf("SPI Tranfer Semaphore and mutex are initialized.\r\n");
@@ -396,7 +396,7 @@ void DMA1_Channel4_IRQHandler(void)
     // Triggers the ESP32 Interrupt
     HAL_SPI_DMAStop(&hspi3);
     // Note: Need to indicate the communication tranfer thread the transfer is done.
-    osMutexRelease(mutex_transfer_done);
+    osSemaphoreRelease(sem_transfer_done);
   }
   HAL_DMA_IRQHandler(&hdma_spi3_tx);
 }
