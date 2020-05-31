@@ -146,7 +146,8 @@ void communication_transfer_message(uint8_t type, uint8_t* buffer, uint32_t leng
       return;
     }
     length -= transfer_size;
-    buffer += transfer_size;
+    buffer += transfer_size * SPI_DMA_MEMWIDTH;
+    printf("Done one round of transfer. Send left: %d\r\n", length);
   }
   
   // Release the shared resources and stop.
