@@ -48,6 +48,7 @@ void tasks_initialization() {
  */
 void task_send_command() {
   printf("Send Command thread has been initialized.\r\n");
+  // NOTE: P the semaphore to make the sempahore function as a binary semaphore.
   osSemaphoreWait(sem_commands_send, osWaitForever);
   for(;;) {
     // Send command
@@ -69,6 +70,8 @@ void task_send_command() {
  */
 void task_send_data() {
   printf("Send Data thread has been initialized.\r\n");
+  // NOTE: P the semaphore to make the sempahore function as a binary semaphore.
+  osSemaphoreWait(sem_transfer_done, osWaitForever);
   for(;;) {
     // NOTE: Pause off ADC sampling first.
     // The ADC sampling is paused inside the DMA function.

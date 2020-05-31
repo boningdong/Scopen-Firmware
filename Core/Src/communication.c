@@ -213,7 +213,7 @@ static void _make_header16(uint16_t* header, uint8_t type, uint32_t length) {
  */
 static void _init_transfer_locks() {
   osSemaphoreDef(SemSendDone);
-  sem_transfer_done = osSemaphoreCreate(osSemaphore(SemSendDone), 0);
+  sem_transfer_done = osSemaphoreCreate(osSemaphore(SemSendDone), 1);
   osSemaphoreDef(SemSpiBusy);
   sem_transfer_occupied = osSemaphoreCreate(osSemaphore(SemSpiBusy), 1);
   printf("SPI Tranfer Semaphore and mutex are initialized.\r\n");

@@ -12,6 +12,8 @@
 #ifndef __COMMUNICATION_H__
 #define __COMMUNICATION_H__
 
+#include "cmsis_os.h"
+
 /**
  * @note the MAX_BUFFER_SIZE should have the same size as the ESP side.
  * 
@@ -34,6 +36,9 @@ typedef struct {
   uint16_t size;
   uint8_t* buffer;
 } transfer_status_t;
+
+extern osSemaphoreId sem_transfer_done;
+
 
 void communication_initialization();
 void communication_transmit(uint8_t* buffer, uint16_t count);
