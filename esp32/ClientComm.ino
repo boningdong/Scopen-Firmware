@@ -1,4 +1,4 @@
-void readMessageWIFI(uint8_t* msg, uint32_t dataSize){
+void readMessageWIFI(uint8_t* msg, const uint32_t& dataSize){
   while(!(clientRecieve.available()>0)){}
   Serial.print("Recieved WIFI Data: ");
   Serial.println(clientRecieve.read(msg,dataSize));
@@ -15,6 +15,7 @@ void readHeaderWIFI(uint32_t &dataSize, uint8_t &dataType){
 }
 
 bool sendHeaderWIFI(const uint32_t &dataSize, const uint8_t &dataType){
+  assert(clientSend.connected());
   byte header[HEADER_SIZE];
   constructHeader(header,dataSize,dataType);
   clientSend.write(header,HEADER_SIZE);
@@ -43,7 +44,8 @@ void sendACKWIFI(){
 }
 
 bool writeMessageWIFI(const uint8_t* msg, const uint32_t &dataLength){
-  Serial.println("Sending message");
+  assert(clientSend.connected());
+  Serial.println("Sending WIFI message");
   Serial.print("Sent: ");
   Serial.println(clientSend.write(msg, dataLength));
   clientSend.flush();

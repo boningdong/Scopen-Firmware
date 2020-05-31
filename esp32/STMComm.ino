@@ -56,7 +56,10 @@ void readHeaderSTM(uint32_t &spiDataSize, uint8_t &spiDataType){
     digitalWrite(SS_PIN,HIGH);
     delay(del);
     spi.endTransaction();
-
+    for(int i = 0; i<5;i++){
+       Serial.print(header[i]);Serial.print(" ");
+    }
+     Serial.println("");
     parseBigEndian(header, spiDataSize);
     spiDataType = header[HEADER_SIZE-1];
     Serial.print("Data size: "); Serial.println(spiDataSize);
