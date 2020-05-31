@@ -1,29 +1,28 @@
-void readMessageWIFI(uint8_t* msg, const uint32_t& dataSize){
+void read_message_wifi(uint8_t* msg, const uint32_t& data_size){
   while(!(clientRecieve.available()>0)){}
-  Serial.print("Recieved WIFI Data: ");
-  Serial.println(clientRecieve.read(msg,dataSize));
+//  Serial.print("Recieved WIFI Data: ");
+  clientRecieve.read(msg,data_size);
 }
 
-void readHeaderWIFI(uint32_t &dataSize, uint8_t &dataType){
+void read_header_wifi(uint32_t &data_size, uint8_t &data_type){
     byte header[HEADER_SIZE];
-    Serial.print("Read: ");
-    Serial.println(clientRecieve.read(header,HEADER_SIZE));  
-    parseBigEndian(header,dataSize);
-    dataType = header[HEADER_SIZE-1];
-    Serial.print("Data size: "); Serial.println(dataSize);
-    Serial.print("Data type: "); Serial.println(dataType);
+    clientRecieve.read(header,HEADER_SIZE);  
+    parseBigEndian(header,data_size);
+    data_type = header[HEADER_SIZE-1];
+//    Serial.print("Data size: "); Serial.println(data_size);
+//    Serial.print("Data type: "); Serial.println(data_type);
 }
 
-bool sendHeaderWIFI(const uint32_t &dataSize, const uint8_t &dataType){
+bool send_header_wifi(const uint32_t &data_size, const uint8_t &data_type){
   assert(clientSend.connected());
   byte header[HEADER_SIZE];
-  constructHeader(header,dataSize,dataType);
+  constructHeader(header,data_size,data_type);
   clientSend.write(header,HEADER_SIZE);
   clientSend.flush();
-  return waitForACKWIFI(100);
+  return wait_for_ack_wifi(100);
 }
 
-bool waitForACKWIFI(int timeout){
+bool wait_for_ack_wifi(int timeout){
   unsigned long sec = millis();
   while(!(clientSend.available()>0) && !((millis()-sec)>timeout)){ //need timeout
   }
@@ -38,27 +37,27 @@ bool waitForACKWIFI(int timeout){
   return false;
 }
 
-void sendACKWIFI(){
+void send_ack_wifi(){
   clientRecieve.write('A');
   clientRecieve.flush();
 }
 
-bool writeMessageWIFI(const uint8_t* msg, const uint32_t &dataLength){
+bool write_message_wifi(const uint8_t* msg, const uint32_t &data_length){
   assert(clientSend.connected());
-  Serial.println("Sending WIFI message");
-  Serial.print("Sent: ");
-  Serial.println(clientSend.write(msg, dataLength));
+//  Serial.println("Sending WIFI message");
+//  Serial.print("Sent: ");
+  Serial.println(clientSend.write(msg, data_length));
   clientSend.flush();
-  return waitForACKWIFI(10);
+  return wait_for_ack_wifi(10);
 }
 
-bool verifyCMDFromUser(const uint8_t &dataType){
-  return dataType == CMD_START_SAMPLE || dataType == CMD_STOP_SAMPLE
-         || dataType == CMD_CHECK_BAT || dataType == CMD_SET_VOLTAGE
-         || dataType == CMD_SET_SAMPLE_PARAS;
+bool verify_cmd_from_user(const uint8_t &data_type){
+  return data_type == CMD_START_SAMPLE || data_type == CMD_STOP_SAMPLE
+         || data_type == CMD_CHECK_BAT || data_type == CMD_SET_VOLTAGE
+         || data_type == CMD_SET_SAMPLE_PARAS;
 }
 
-bool udpListen(){
+bool udp_listen(){
   int packsize = udp.parsePacket();
   char package_buffer[256];
   if(packsize!=0){
@@ -80,20 +79,20 @@ bool udpListen(){
   return false;
 }
 
-void tcpStart(){
+void tcp_start(){
   serverRecieve.begin(TCP_PORT_RECIEVE);
   serverSend.begin(TCP_PORT_SEND);
   Serial.println("TCP Sockets enabled");
 }
 
-bool checkTCPClient(){
+bool check_tcp_client(){
   clientRecieve = serverRecieve.available();
   clientSend = serverSend.available();
   delay(100);
   return clientRecieve && clientSend;
 }
 
-void tcpStop(){
+void tcp_stop(){
   clientRecieve.stop();
   clientSend.stop();
   Serial.println("TCP Socket stopped");

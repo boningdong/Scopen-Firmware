@@ -43,8 +43,8 @@ static const int SCK_PIN = 14;
 static const int SS_PIN = 15;
 static const int INTERRUPT_PIN = 23;
 
-const static int serialTXPin = 22;
-const static int serialRXPin = 19;
+const static int serial_TX_Pin = 22;
+const static int serial_RX_Pin = 19;
 
 char scan_send_msg[1024] = "";
 int connection_time = 0;
@@ -55,26 +55,26 @@ const char *ssid = "Scopen";
 const char *password = "123456789";
 uint8_t intFlag = 0;
 
-bool verifyCMDFromSTM(const uint8_t &dataType);
-bool writeMessageSTM(const uint8_t* msg, const uint32_t &dataLength);
-void readMessageSTM(uint8_t* msg, const uint32_t &spiDataLength);
+bool verify_cmd_from_stm(const uint8_t &data_type);
+bool write_message_stm(const uint8_t* msg, const uint32_t &data_length);
+void read_message_stm(uint8_t* msg, const uint32_t &spi_data_length);
 
-bool sendHeaderSTM(const uint32_t &dataSize, const uint8_t &dataType);
-void sendACKSTM();
-bool waitForACKSTM(int timeout);
-void readHeaderSTM(uint32_t &spiDataSize, uint8_t &spiDataType);
+bool send_header_stm(const uint32_t &data_size, const uint8_t &data_type);
+void send_ack_stm();
+bool wait_for_ack_stm(int timeout);
+void read_header_stm(uint32_t &spi_data_Size, uint8_t &spi_data_ype);
 
-void readMessageWIFI(uint8_t* msg, const uint32_t &dataSize);
-void readHeaderWIFI(uint32_t &dataSize, uint8_t &dataType);
-bool sendHeaderWIFI(const uint32_t &dataSize, const uint8_t &dataType);
-void sendACKWIFI();
-bool waitForACKWIFI(int timeout);
-bool writeMessageWIFI(const uint8_t* msg, const uint32_t &dataLength);
-bool verifyCMDFromUser(const uint8_t &dataType);
-bool udpListen();
-void tcpStart();
-void tcpStop();
-bool checkTCPClient();
+void read_message_wifi(uint8_t* msg, const uint32_t &data_size);
+void read_header_wifi(uint32_t &data_size, uint8_t &data_type);
+bool send_header_wifi(const uint32_t &data_size, const uint8_t &data_type);
+void send_ack_wifi();
+bool wait_for_ack_wifi(int timeout);
+bool write_message_wifi(const uint8_t* msg, const uint32_t &data_length);
+bool verify_cmd_from_user(const uint8_t &data_type);
+bool udp_listen();
+void tcp_start();
+void tcp_stop();
+bool check_tcp_client();
 
 struct upStream {
   uint32_t dataCount = 0;
@@ -94,7 +94,8 @@ SPIClass spi(HSPI);
 
 void IRAM_ATTR flagReadADCData(void) {
   intFlag = 1;
-  Serial.println("Triggered");
+  Serial.println("");
+  Serial.println("Interrupted");
   if (incoming.dataCount > 0) {
     if ((millis() - spi_recieve_timeout) > SPI_CONNECTION_TIMEOUT * 1000) {
       incoming.dataCount = 0;
@@ -112,13 +113,25 @@ void upStreamTask(void* pvParameters) {
       intFlag = 0;
       spi_recieve_timeout = 0;
       if (!(incoming.dataCount > 0)) {
-        readHeaderSTM(incoming.dataCount, incoming.dataType);
-        if (verifyCMDFromSTM(incoming.dataType)) {
-          sendACKSTM();
+        read_header_stm(incoming.dataCount, incoming.dataType);
+        if (verify_cmd_from_stm(incoming.dataType)) {
+          send_ack_stm();
+
           if (CONNECTION_STATE == 1)
-            sendHeaderWIFI(incoming.dataCount, incoming.dataType);
-          if (incoming.dataCount > 0) {
+            send_header_wifi(incoming.dataCount, incoming.dataType);
+          if (incoming.dataCount > 0)
             spi_recieve_timeout = millis();
+
+          Serial.println("Reading and sending in chunks");
+          while (verify_cmd_from_stm(incoming.dataType) && incoming.dataCount > 0) {
+            uint32_t readLength = incoming.dataCount > MAX_SPI_BUFFER ? MAX_SPI_BUFFER : incoming.dataCount;
+            read_message_stm(incoming.msg, readLength);
+            if (CONNECTION_STATE == 1)
+              write_message_wifi(incoming.msg, readLength);
+            incoming.dataCount = incoming.dataCount - readLength;
+            Serial.println(incoming.dataCount);
+            send_ack_stm();
+            Serial.println("");
           }
         }
         else {
@@ -126,37 +139,20 @@ void upStreamTask(void* pvParameters) {
           incoming.dataCount = 0;
         }
       }
-      while (verifyCMDFromSTM(incoming.dataType) && incoming.dataCount > 0) {
-        uint32_t readLength = incoming.dataCount > MAX_SPI_BUFFER ? MAX_SPI_BUFFER : incoming.dataCount;
-        readMessageSTM(incoming.msg, readLength);
-        if (CONNECTION_STATE == 1)
-          writeMessageWIFI(incoming.msg, readLength);
-        incoming.dataCount = incoming.dataCount - readLength;
-        Serial.println(incoming.dataCount);
-        //        for(int i = 0; i < readLength; i++) {
-        //          Serial.print(incoming.msg[i], HEX);
-        //          Serial.print(' ');
-        //          incoming.msg[i] = 0;
-        //        }
-        //        Serial.println("");
-        sendACKSTM();
-        //Serial.println(incoming.dataCount);
-        delay(1);
-      }
       incoming.dataCount = 0;
-      //        incoming.recievedHeader = false;
     }
     delay(2);
   }
-
+  
 }
+
 
 
 
 void setup()
 {
   Serial.begin(115200);
-  Serial2.begin(115200, SERIAL_8N1, serialRXPin, serialTXPin);
+  Serial2.begin(115200, SERIAL_8N1, serial_RX_Pin, serial_TX_Pin);
   Serial.println("Creating AP ...");
   WiFi.softAP(ssid, password);
   penIP = WiFi.softAPIP();
@@ -170,33 +166,33 @@ void setup()
 
   WiFi.onEvent(wifi_event_handler);
   udp.begin(SCAN_LISTEN_PORT);
-  tcpStart();
+  tcp_start();
   delay(500);
 }
 
 void loop()
 {
-  if (udpListen()) {
+  if (udp_listen()) {
     Serial.println("Recieved Scopen message");
     delay(10);
   }
-  if (checkTCPClient()) {
+  if (check_tcp_client()) {
     CONNECTION_STATE = 1;
     Serial.println("Connected");
     uint32_t dataSize; uint8_t dataType; byte msg[] = {0, 0, 0, 0, 0, 0, 0};
     while (clientSend.connected() && clientRecieve.connected()) {
       if (clientRecieve.available() == HEADER_SIZE) {
-        readHeaderWIFI(dataSize, dataType);
-        if (verifyCMDFromUser(dataType)) {
-          sendACKWIFI();
+        read_header_wifi(dataSize, dataType);
+        if (verify_cmd_from_user(dataType)) {
+          send_ack_wifi();
           if (dataSize) {
-            readMessageWIFI(msg, dataSize);
-            sendACKWIFI();
-            sendHeaderSTM(dataSize, dataType);
-            writeMessageSTM(msg, dataSize);
+            read_message_wifi(msg, dataSize);
+            send_ack_wifi();
+            send_header_stm(dataSize, dataType);
+            write_message_stm(msg, dataSize);
           }
           else {
-            sendHeaderSTM(dataSize, dataType);
+            send_header_stm(dataSize, dataType);
           }
         }
         else {

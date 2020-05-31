@@ -1,26 +1,26 @@
-bool verifyCMDFromSTM(const uint8_t &dataType){
-  return dataType == CMD_DATA || dataType == CMD_REPORT_BAT
-         || dataType == CMD_SWIPE_UP || dataType == CMD_SWIPE_DOWN
-         || dataType == CMD_CHANGE_SEL;
+bool verify_cmd_from_stm(const uint8_t &data_type){
+  return data_type == CMD_DATA || data_type == CMD_REPORT_BAT
+         || data_type == CMD_SWIPE_UP || data_type == CMD_SWIPE_DOWN
+         || data_type == CMD_CHANGE_SEL;
 }
 
-bool sendHeaderSTM(const uint32_t &dataSize, const uint8_t &dataType){
+bool send_header_stm(const uint32_t &data_size, const uint8_t &data_type){
   uint8_t header[HEADER_SIZE];
-  constructHeader(header,dataSize,dataType);
+  constructHeader(header,data_size,data_type);
   Serial2.write(header,HEADER_SIZE);
   Serial2.flush();
-  return waitForACKSTM(10);
+  return wait_for_ack_stm(10);
 }
 
-bool writeMessageSTM(const uint8_t* msg, const uint32_t &dataLength){
+bool write_message_stm(const uint8_t* msg, const uint32_t &data_length){
   Serial.print("Sending message to STM: ");
-  Serial.println(Serial2.write(msg, dataLength));
+  Serial.println(Serial2.write(msg, data_length));
   Serial2.flush();
-  return waitForACKSTM(10);
+  return wait_for_ack_stm(10);
 }
 
-void sendACKSTM(){
-  int del = 10;
+void send_ack_stm(){
+  int del = 1;
   spi.beginTransaction(SPISettings(SPI_SPEED,MSBFIRST,SPI_MODE0));
   digitalWrite(SS_PIN,LOW);
   delay(del);
@@ -31,7 +31,7 @@ void sendACKSTM(){
   Serial.println("Sent ACK to STM");
 }
 
-bool waitForACKSTM(int timeout){
+bool wait_for_ack_stm(int timeout){
   unsigned long sec = millis();
   while(!(Serial2.available()>0)&& !((millis()-sec)>timeout)){} //need timeout
   if(Serial2.read() == (int) 'A'){
@@ -45,9 +45,8 @@ bool waitForACKSTM(int timeout){
   return false;
 }
 
-void readHeaderSTM(uint32_t &spiDataSize, uint8_t &spiDataType){
+void read_header_stm(uint32_t &spi_data_size, uint8_t &spi_data_type){
     uint8_t header[HEADER_SIZE];
-
     int del = 1;
     spi.beginTransaction(SPISettings(SPI_SPEED,MSBFIRST,SPI_MODE0));
     digitalWrite(SS_PIN,LOW);
@@ -56,22 +55,24 @@ void readHeaderSTM(uint32_t &spiDataSize, uint8_t &spiDataType){
     digitalWrite(SS_PIN,HIGH);
     delay(del);
     spi.endTransaction();
+    Serial.println(" ");
+    Serial.print("SPI Header: ");
     for(int i = 0; i<5;i++){
        Serial.print(header[i]);Serial.print(" ");
     }
      Serial.println("");
-    parseBigEndian(header, spiDataSize);
-    spiDataType = header[HEADER_SIZE-1];
-    Serial.print("Data size: "); Serial.println(spiDataSize);
-    Serial.print("Data type: "); Serial.println(spiDataType);
+    parseBigEndian(header, spi_data_size);
+    spi_data_type = header[HEADER_SIZE-1];
+    Serial.print("Data size: "); Serial.println(spi_data_size);
+    Serial.print("Data type: "); Serial.println(spi_data_type);
 }
 
-void readMessageSTM(uint8_t* msg, const uint32_t &spiDataLength){
+void read_message_stm(uint8_t* msg, const uint32_t &spi_data_length){
   int del = 1;
   spi.beginTransaction(SPISettings(SPI_SPEED,MSBFIRST,SPI_MODE0));
   digitalWrite(SS_PIN,LOW);
   delay(del);
-  spi.transfer(msg,spiDataLength);
+  spi.transfer(msg,spi_data_length);
   digitalWrite(SS_PIN,HIGH);
   delay(del);
   spi.endTransaction();
