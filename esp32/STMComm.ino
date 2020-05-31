@@ -32,17 +32,23 @@ void send_ack_stm(){
 }
 
 bool wait_for_ack_stm(int timeout){
-  unsigned long sec = millis();
-  while(!(Serial2.available()>0)&& !((millis()-sec)>timeout)){} //need timeout
-  if(Serial2.read() == (int) 'A'){
+  unsigned long sec = millis(); unsigned long current_time = millis();
+  while(!(Serial2.available()>0)&& !((current_time - sec)>timeout)){
+    current_time = millis();
+  }
+  if(current_time-sec>timeout){
+    Serial.println("UART ACK timed out");
+    return false;
+  }
+  else if(Serial2.read() == (int) 'A'){
     Serial.println("Recieved ACK UART");
     return true;
   }
   else{
     Serial.println("Wrong ACK recieved from UART");
+    return false;
   }
   
-  return false;
 }
 
 void read_header_stm(uint32_t &spi_data_size, uint8_t &spi_data_type){

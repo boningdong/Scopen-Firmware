@@ -14,27 +14,38 @@ void read_header_wifi(uint32_t &data_size, uint8_t &data_type){
 }
 
 bool send_header_wifi(const uint32_t &data_size, const uint8_t &data_type){
-  assert(clientSend.connected());
+//  assert(clientSend.connected());
   byte header[HEADER_SIZE];
   constructHeader(header,data_size,data_type);
   clientSend.write(header,HEADER_SIZE);
   clientSend.flush();
-  return wait_for_ack_wifi(100);
+  return wait_for_ack_wifi(20);
 }
 
 bool wait_for_ack_wifi(int timeout){
-  unsigned long sec = millis();
-  while(!(clientSend.available()>0) && !((millis()-sec)>timeout)){ //need timeout
+  unsigned long sec = millis(); unsigned long current_time = millis();
+//  Serial.print("sec: "); Serial.println(sec);
+  while(!(clientSend.available()>0) && !((current_time-sec)>timeout)){
+    current_time = millis();
   }
-  if(clientSend.read() == (int)'A'){
-    Serial.println("Recieved ACK WIFI");
+  Serial.println("after");
+  
+  
+  if((current_time-sec)>=timeout){
+    Serial.println("WIFI ACK timed out");
+    return false;
+  }
+  uint8_t b = 0;
+  clientSend.read(&b,1);
+  if(b == 'A'){
+    Serial.println("here");
     return true;
   }
   else{
     Serial.println("Wrong ACK recieved WIFI");
+    return false;
   }
-
-  return false;
+  
 }
 
 void send_ack_wifi(){
@@ -43,12 +54,12 @@ void send_ack_wifi(){
 }
 
 bool write_message_wifi(const uint8_t* msg, const uint32_t &data_length){
-  assert(clientSend.connected());
+//  assert(clientSend.connected());
 //  Serial.println("Sending WIFI message");
 //  Serial.print("Sent: ");
-  Serial.println(clientSend.write(msg, data_length));
+  clientSend.write(msg, data_length);
   clientSend.flush();
-  return wait_for_ack_wifi(10);
+  return wait_for_ack_wifi(20);
 }
 
 bool verify_cmd_from_user(const uint8_t &data_type){

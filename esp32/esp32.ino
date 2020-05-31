@@ -111,7 +111,7 @@ void upStreamTask(void* pvParameters) {
           uint32_t readLength = incoming.dataCount > MAX_SPI_BUFFER ? MAX_SPI_BUFFER : incoming.dataCount;
           read_message_stm(incoming.msg, readLength);
           if (CONNECTION_STATE == 1)
-            write_message_wifi(incoming.msg, readLength);
+            write_message_wifi(incoming.msg, readLength); //ab
           incoming.dataCount = incoming.dataCount - readLength;
           Serial.println(incoming.dataCount);
           Serial.println("");
@@ -141,7 +141,7 @@ void setup()
   penIP = WiFi.softAPIP();
   Serial.println("AP IP address: ");
   Serial.println(penIP);
-  xTaskCreatePinnedToCore(upStreamTask, "downStream", 10000, NULL, 0, NULL, 0);
+  xTaskCreatePinnedToCore(upStreamTask, "downStream", 10000, NULL, 6, NULL, 0);
   pinMode(SS_PIN, OUTPUT);
   digitalWrite(SS_PIN, HIGH);
   attachInterrupt(INTERRUPT_PIN, flagReadADCData, RISING);
