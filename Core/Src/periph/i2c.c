@@ -11,6 +11,7 @@
 
 #include "main.h"
 #include "periph/i2c.h"
+#include <stdio.h>
 #include <stm32g4xx_ll_gpio.h>
 #include <stm32g4xx_ll_bus.h>
 #include <stm32g4xx_ll_i2c.h>

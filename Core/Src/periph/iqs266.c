@@ -427,7 +427,7 @@ void iqs266_set_report_rate_nm(uint8_t value, bool restart) {
 void iqs266_set_clear_tp_flags(bool restart) {
   uint8_t buffer[2];
   _read_random_bytes(PROXSETTINGS_23, buffer, 2, true);
-  buffer[0] != TP_CLEAR_BIT;
+  buffer[0] |= TP_CLEAR_BIT;
   _write_random_bytes(PROXSETTINGS_23, buffer, 2, restart);
 }
 
