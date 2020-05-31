@@ -117,16 +117,16 @@ void upStreamTask(void* pvParameters) {
           sendACKSTM();
           if (CONNECTION_STATE == 1)
             sendHeaderWIFI(incoming.dataCount, incoming.dataType);
-        }
-        if (incoming.dataCount > 0) {
-          spi_recieve_timeout = millis();
+          if (incoming.dataCount > 0) {
+            spi_recieve_timeout = millis();
+          }
         }
         else {
           Serial.println("Wrong header datatype sent from SPI");
           incoming.dataCount = 0;
         }
       }
-      while (verifyCMDFromSTM(incoming.dataType)&&incoming.dataCount > 0) {
+      while (verifyCMDFromSTM(incoming.dataType) && incoming.dataCount > 0) {
         uint32_t readLength = incoming.dataCount > MAX_SPI_BUFFER ? MAX_SPI_BUFFER : incoming.dataCount;
         readMessageSTM(incoming.msg, readLength);
         if (CONNECTION_STATE == 1)
@@ -148,7 +148,7 @@ void upStreamTask(void* pvParameters) {
     }
     delay(2);
   }
-  
+
 }
 
 
