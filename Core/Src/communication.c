@@ -88,8 +88,10 @@ ErrorStatus communication_receive_block(uint8_t* buffer, uint16_t count, uint32_
 ErrorStatus communication_wait_ack(uint8_t* buffer){
   uint8_t timer = 10;
   uint8_t tries = timer;
-  while(*buffer !='A' && timer){
-    if(communication_receive_block(buffer, 1, SPI_WAIT_ACK_TIMEOUT) == SUCCESS)
+  while(timer){
+    if(communication_receive_block(buffer, 1, SPI_WAIT_ACK_TIMEOUT) == ERROR)
+      return ERROR;
+    if (*buffer == 'A')
       return SUCCESS;
     osDelay(SPI_WAIT_ACK_TIMEOUT / tries);
     timer --;
