@@ -19,14 +19,12 @@ trackpad_flags_t gestures = {0};
  * 
  */
 void touch_init() {
-  uint8_t device_number;
   iqs266_init();
 
   // Must successfully request the communication window first.
   while(!iqs266_request_communication());
 
   iqs266_clear_reset(true);
-  device_number = iqs266_read_device_info(true);
   
   // Set low power and normal power parameters.
   iqs266_set_report_rate_lp(0, true);
@@ -80,20 +78,20 @@ void EXTI15_10_IRQHandler(void) {
         latest_cmd.type = CMD_CHANGE_SEL;
         latest_cmd.argv = NULL;
         latest_cmd.argc = 0;
-        osSignalSet(event_handle_task, UNBLOCK_SIGNAL);
+        osSignalSet(event_handle_task, USER_INPUT_SIG);
       }
     } else if(events.swipe) {
       if (gestures.swipeUp) {
         latest_cmd.type = CMD_SWIPE_UP;
         latest_cmd.argv = NULL;
         latest_cmd.argc = 0;
-        osSignalSet(event_handle_task, UNBLOCK_SIGNAL);
+        osSignalSet(event_handle_task, USER_INPUT_SIG);
       }
       else if (gestures.swipeDown) {
         latest_cmd.type = CMD_SWIPE_DOWN;
         latest_cmd.argv = NULL;
         latest_cmd.argc = 0;
-        osSignalSet(event_handle_task, UNBLOCK_SIGNAL);
+        osSignalSet(event_handle_task, USER_INPUT_SIG);
       }
     }
 
