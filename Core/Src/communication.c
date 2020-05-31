@@ -118,7 +118,7 @@ void communication_transfer_message(uint8_t type, uint8_t* buffer, uint32_t leng
   // Transfer the header of the data.
   communication_transmit((uint8_t*)header, HEADER_SIZE * SPI_DMA_MEMWIDTH);
   // Wait to make sure the tranmission is done before waiting for the acknowledgement. Or it may fuck up the data.
-  osMutexWait(sem_transfer_done, osWaitForever);
+  osSemaphoreWait(sem_transfer_done, osWaitForever);
   // Wait for the acknowledgement.
   // Note: Need to make sure the tranmit is done. Or it will fuck up the data.
   //status = communication_receive_block(&ack, 1, SPI_WAIT_ACK_TIMEOUT);
@@ -137,7 +137,7 @@ void communication_transfer_message(uint8_t type, uint8_t* buffer, uint32_t leng
     communication_transmit(buffer, transfer_size * SPI_DMA_MEMWIDTH);
     // Wait for the acknowledgement;
     // NOTE: Need to make sure the tranmit is done. Or it will fuck up the data.
-    osMutexWait(sem_transfer_done, osWaitForever);
+    osSemaphoreWait(sem_transfer_done, osWaitForever);
     status = communication_wait_ack(&ack);
     if (status != SUCCESS) {
       // Release the shared resources and stop.
