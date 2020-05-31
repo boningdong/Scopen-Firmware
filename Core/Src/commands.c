@@ -10,11 +10,12 @@
  */
 
 #include "main.h"
-#include <stdlib.h>
 #include "communication.h"
 #include "commands.h"
 #include "cmsis_os.h"
 #include "afe.h"
+#include <stdlib.h>
+#include <stdio.h>
 
 
 // Static function declarations
@@ -45,7 +46,6 @@ command_buff_t recv_commands_buff = {0};
  */
 void command_processor_init() {
   // initialize the semaphores
-  osSemaphoreDef(samples_ready);
   osSemaphoreDef(send_slots);
   osSemaphoreDef(recv_slots);
   osSemaphoreDef(send_cmds);
@@ -179,9 +179,12 @@ void command_execute(command_t* cmd) {
  * @param cmd Pointer to the command_t object.
  */
 static void _start_sample_handle(command_t* cmd) {
-  if (!afe_is_sampling_stopped())
+  if (afe_is_sampling_enabled())
     return;
-  afe_sampling_start();
+  // Enable the sampling first to turn the global switch on.
+  afe_sampling_enable();
+  // Then trigger the first sampling.
+  afe_sampling_trigger();
 }
 
 /**
@@ -191,9 +194,12 @@ static void _start_sample_handle(command_t* cmd) {
  * @param cmd Pointer to the command_t object.
  */
 static void _stop_sample_handle(command_t* cmd) {
-  if (afe_is_sampling_stopped())
+  if (!afe_is_sampling_enabled())
     return;
-  afe_sampling_stop();
+  // Pause the sampling timer first.
+  afe_sampling_pause();
+  // Then disable the global switch.
+  afe_sampling_disable();
 }
 
 /**
@@ -230,14 +236,23 @@ static void _set_sample_paras_handle(command_t* cmd) {
     printf("Invalid arg size.\r\n");
     return;
   }
-  uint8_t speed_option = cmd->argv[0];
-  uint32_t sample_length = (cmd->argv[1] << 24) | (cmd->argv[2] << 16) | (cmd->argv[3] << 8) | (cmd->argv[4]); 
+  uint8_t speed_option, curr_speed_option;
+  uint32_t sample_length, curr_sample_length;
+  // Parse the speed option and length from the new command.
+  speed_option = cmd->argv[0];
+  sample_length = (cmd->argv[1] << 24) | (cmd->argv[2] << 16) | (cmd->argv[3] << 8) | (cmd->argv[4]); 
+  // Fetach the current setting.
+  afe_get_current_sampling_paras(&curr_speed_option, &curr_sample_length);
   // Check if the parsed sampling parameters are the same as the current one.
   // If it's not, then reset the sampling parameters.
-  if (speed_option != sample_paras.speed_option || sample_length != sample_paras.sample_length) {
+  if (speed_option != curr_speed_option || sample_length != curr_sample_length) {
     // Turn off the ADC sampling first.
-    afe_sampling_stop();
+    if (!afe_is_sampling_paused())
+      afe_sampling_pause();
+    // Set the sampling parameters
     afe_set_sampling_paras(speed_option, sample_length);
-    afe_sampling_start();
+    // Reenable the ADC sampling if it's running.
+    if (afe_is_sampling_enabled())
+      afe_sampling_trigger();
   }
 }
