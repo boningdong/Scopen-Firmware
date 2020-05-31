@@ -186,9 +186,9 @@ ErrorStatus communication_uart_send(uint8_t* buffer, uint16_t size, uint32_t tim
  */
 static void _make_header(uint8_t* header, uint8_t type, uint32_t length) {
   header[HEADER_SIZE-1] = type;
-  for (uint8_t i = 0; i < HEADER_SIZE_FIELD; i++) {
-    uint8_t shift_bytes = HEADER_SIZE_FIELD - i - 1;
-    header[i] = (length >> (sizeof(uint8_t) * shift_bytes)) & 0xFF;
+  uint8_t* len = (uint8_t*)(&length);
+  for (int i = 0; i < HEADER_SIZE_FIELD; i++) {
+    header[i] = len[HEADER_SIZE_FIELD - 1 - i];
   }
 }
 
@@ -201,11 +201,11 @@ static void _make_header(uint8_t* header, uint8_t type, uint32_t length) {
  */
 static void _make_header16(uint16_t* header, uint8_t type, uint32_t length) {
   header[HEADER_SIZE - 1] = type;
-  for (uint8_t i = 0; i < HEADER_SIZE_FIELD; i++) {
-    uint8_t shift_bytes = HEADER_SIZE_FIELD - i - 1;
-    header[i] = (length >> (sizeof(uint8_t) * shift_bytes)) & 0xFF;
+  uint8_t* len = (uint8_t*)(&length);
+  for (int i = 0; i < HEADER_SIZE_FIELD; i++) {
+    header[i] = len[HEADER_SIZE_FIELD - 1 - i];
   }
-}
+} 
 
 /**
  * @brief Initialize the tranfer occupied semaphore so that it can accept one token.
