@@ -20,12 +20,12 @@ bool write_message_stm(const uint8_t* msg, const uint32_t &data_length){
 }
 
 void send_ack_stm(){
-  int del = 1;
+//  int del = 1;
   spi.beginTransaction(SPISettings(SPI_SPEED,MSBFIRST,SPI_MODE0));
   digitalWrite(SS_PIN,LOW);
-  delay(del);
+//  delay(del);
   spi.write('A');
-  delay(del);
+//  delay(del);
   digitalWrite(SS_PIN,HIGH);
   spi.endTransaction();
   Serial.println("Sent ACK to STM");
@@ -53,13 +53,13 @@ bool wait_for_ack_stm(int timeout){
 
 void read_header_stm(uint32_t &spi_data_size, uint8_t &spi_data_type){
     uint8_t header[HEADER_SIZE];
-    int del = 1;
+//    int del = 1;
     spi.beginTransaction(SPISettings(SPI_SPEED,MSBFIRST,SPI_MODE0));
     digitalWrite(SS_PIN,LOW);
-    delay(del);
+//    delay(del);
     spi.transferBytes(NULL,header,HEADER_SIZE);
     digitalWrite(SS_PIN,HIGH);
-    delay(del);
+//    delay(del);
     spi.endTransaction();
     Serial.println(" ");
     Serial.print("SPI Header: ");
@@ -77,9 +77,9 @@ void read_message_stm(uint8_t* msg, const uint32_t &spi_data_length){
   int del = 1;
   spi.beginTransaction(SPISettings(SPI_SPEED,MSBFIRST,SPI_MODE0));
   digitalWrite(SS_PIN,LOW);
-  delay(del);
+//  delay(del);
   spi.transfer(msg,spi_data_length);
   digitalWrite(SS_PIN,HIGH);
-  delay(del);
+//  delay(del);
   spi.endTransaction();
 }

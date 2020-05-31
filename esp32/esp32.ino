@@ -129,7 +129,35 @@ void upStreamTask(void* pvParameters) {
 }
 
 
-
+void downStreamTask(void* pvParameters) {
+  CONNECTION_STATE = 1;
+  Serial.println("Connected");
+  uint32_t dataSize; uint8_t dataType; byte msg[] = {0, 0, 0, 0, 0, 0, 0};
+  while (clientSend.connected() && clientRecieve.connected()) {
+    if (clientRecieve.available() == HEADER_SIZE) {
+      read_header_wifi(dataSize, dataType);
+      if (verify_cmd_from_user(dataType)) {
+        send_ack_wifi();
+        if (dataSize) {
+          read_message_wifi(msg, dataSize);
+          send_ack_wifi();
+          send_header_stm(dataSize, dataType);
+          write_message_stm(msg, dataSize);
+        }
+        else {
+          send_header_stm(dataSize, dataType);
+        }
+      }
+      else {
+        Serial.println("Wrong header dataType recieved from WIFI");
+      }
+    }
+  }
+  Serial.println("TCP Client disconnected");
+  CONNECTION_STATE = 0;
+  udp.begin(SCAN_LISTEN_PORT);
+  vTaskDelete(NULL);
+}
 
 
 void setup()
@@ -141,7 +169,7 @@ void setup()
   penIP = WiFi.softAPIP();
   Serial.println("AP IP address: ");
   Serial.println(penIP);
-  xTaskCreate(upStreamTask, "downStream", 10000, NULL, 6, NULL);
+  xTaskCreate(upStreamTask, "downStream", 10000, NULL, 2, NULL);
   pinMode(SS_PIN, OUTPUT);
   digitalWrite(SS_PIN, HIGH);
   attachInterrupt(INTERRUPT_PIN, flagReadADCData, RISING);
@@ -153,40 +181,17 @@ void setup()
   delay(500);
 }
 
+
+
 void loop()
 {
-  if (udp_listen()) {
+  if (CONNECTION_STATE == 0&&udp_listen()) {
     Serial.println("Recieved Scopen message");
     delay(10);
   }
-  if (check_tcp_client()) {
-    CONNECTION_STATE = 1;
-    Serial.println("Connected");
-    uint32_t dataSize; uint8_t dataType; byte msg[] = {0, 0, 0, 0, 0, 0, 0};
-    while (clientSend.connected() && clientRecieve.connected()) {
-      if (clientRecieve.available() == HEADER_SIZE) {
-        read_header_wifi(dataSize, dataType);
-        if (verify_cmd_from_user(dataType)) {
-          send_ack_wifi();
-          if (dataSize) {
-            read_message_wifi(msg, dataSize);
-            send_ack_wifi();
-            send_header_stm(dataSize, dataType);
-            write_message_stm(msg, dataSize);
-          }
-          else {
-            send_header_stm(dataSize, dataType);
-          }
-        }
-        else {
-          Serial.println("Wrong header dataType recieved from WIFI");
-        }
-      }
-    }
-    Serial.println("TCP Client disconnected");
-  }
-  else {
-    CONNECTION_STATE = 0;
+  if (CONNECTION_STATE == 0 && check_tcp_client()) {
+    udp.stop();
+    xTaskCreate(downStreamTask, "downStream", 10000, NULL, 3, NULL);
   }
 }
 
