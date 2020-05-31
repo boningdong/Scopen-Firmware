@@ -14,7 +14,8 @@
 
 #include "cmsis_os.h"
 
-#define UNBLOCK_SIGNAL 0x01
+#define USER_INPUT_SIG 0x01
+#define DATA_TRANS_SIG 0x02
 
 extern osThreadId send_cmd_task;
 extern osThreadId send_data_task;

@@ -16,7 +16,8 @@
 #include "commands.h"
 #include "communication.h"
 #include <stdio.h>
-
+#include "sram.h"
+#include "afe.h"
 /**
  * @defgroup Upstream communication handlers.
  * 
@@ -68,14 +69,20 @@ void task_send_command() {
  */
 void task_send_data() {
   printf("Send Data thread has been initialized.\r\n");
-  // TODO: Take out this semaphore and use a signal instread.
   for(;;) {
-    // TODO: Turn off ADC sampling first.
-    osSignalWait(UNBLOCK_SIGNAL, osWaitForever);
+    // NOTE: Pause off ADC sampling first.
+    // The ADC sampling is paused inside the DMA function.
+    // And the DMA function will send the following signal.
+    osSignalWait(DATA_TRANS_SIG, osWaitForever);
     printf("Sending data to PC.\r\n");
-    // TODO: Implement the transfer data method.
-    // Need to call communication_transfer_message here.
-    // The type should be CMD_DATA, buffer is the SRAM buffer. And the length depends on the sample paras.
+    // NOTE: Because the data is saved in the external SRAM here. So we use the SRAM memory address.
+    // NOTE: Even though the SRAM is 16bit width memory, we use uint8_t* here to follow the function signature.
+    //       SPI DMA will handle the conversion from the 16 bit width data to the SPI register directly.
+    uint8_t* result_buffer = (uint8_t*) SRAM_BANK_ADDRESS;
+    communication_transfer_message(CMD_DATA, result_buffer, last_conv_length);
+    // NOTE: check if the sampling global switch is enabled. If it is enabled run a new sequence of sampling again.
+    if(afe_is_sampling_enabled())
+      afe_sampling_trigger();
   }
 }
 
@@ -147,13 +154,19 @@ void task_listen_uart() {
     }
     
     // Wait for the body
+    
     // REVIEW: Here the malloc may be not thread-safe. Change to thread-safe one if it's necessary.
-    body_buffer = (uint8_t*)malloc(sizeof(uint8_t) * length);
-    // NOTE: Here the cast should be fine. Because all of the commands will not have long body.
-    status = communication_uart_receive(body_buffer, (uint16_t) length, UART_WAIT_BODY_TIMEOUT);
-    if (status != SUCCESS) {
-      printf("Uart receive body failed.\r\n");
-      free(body_buffer);
+    if (length > 0) {
+      body_buffer = (uint8_t*)malloc(sizeof(uint8_t) * length);
+      // NOTE: Here the cast should be fine. Because all of the commands will not have long body.
+      status = communication_uart_receive(body_buffer, (uint16_t) length, UART_WAIT_BODY_TIMEOUT);
+      if (status != SUCCESS) {
+        printf("Uart receive body failed.\r\n");
+        free(body_buffer);
+        continue;
+      }
+    } else {
+      printf("Invalid length received: %lu\r\n", length);
       continue;
     }
     
@@ -186,9 +199,8 @@ void task_listen_uart() {
  */
 void task_handle_event() {
   printf("Touch event handling thread.\r\n");
-  osStatus os_status = 0;
   for(;;) {
-    osSignalWait(UNBLOCK_SIGNAL, osWaitForever);
+    osSignalWait(USER_INPUT_SIG, osWaitForever);
     // Check whether there are enough slots.
     osSemaphoreWait(sem_send_slots, osWaitForever);
     command_send_enqueue(latest_cmd);
