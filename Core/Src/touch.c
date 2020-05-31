@@ -76,21 +76,24 @@ void EXTI15_10_IRQHandler(void) {
     if(events.tap) {
       if (gestures.tap) {
         latest_cmd.type = CMD_CHANGE_SEL;
-        latest_cmd.argv = NULL;
-        latest_cmd.argc = 0;
+        latest_cmd.argv = (uint8_t*) malloc(1);
+        latest_cmd.argv[0] = 0xff;
+        latest_cmd.argc = 1;
         osSignalSet(event_handle_task, USER_INPUT_SIG);
       }
     } else if(events.swipe) {
       if (gestures.swipeUp) {
         latest_cmd.type = CMD_SWIPE_UP;
-        latest_cmd.argv = NULL;
-        latest_cmd.argc = 0;
+        latest_cmd.argv = (uint8_t*) malloc(1);
+        latest_cmd.argv[0] = 0xff;
+        latest_cmd.argc = 1;
         osSignalSet(event_handle_task, USER_INPUT_SIG);
       }
       else if (gestures.swipeDown) {
         latest_cmd.type = CMD_SWIPE_DOWN;
-        latest_cmd.argv = NULL;
-        latest_cmd.argc = 0;
+        latest_cmd.argv = (uint8_t*) malloc(1);
+        latest_cmd.argv[0] = 0xff;
+        latest_cmd.argc = 1;
         osSignalSet(event_handle_task, USER_INPUT_SIG);
       }
     }

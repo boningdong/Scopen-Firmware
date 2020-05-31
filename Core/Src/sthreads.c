@@ -16,6 +16,7 @@
 #include "commands.h"
 #include "communication.h"
 #include <stdio.h>
+#include <string.h>
 #include "sram.h"
 #include "afe.h"
 /**
@@ -58,6 +59,7 @@ void task_send_command() {
     osSemaphoreRelease(sem_send_slots);
     // NOTE: Making the buffer and the header together.
     uint16_t* buffer = (uint16_t*) malloc(sizeof(uint16_t) * (HEADER_SIZE + cmd.argc));
+    memset(buffer, 0, (HEADER_SIZE + cmd.argc) * sizeof(uint16_t));
     buffer[3] = cmd.argc;
     buffer[4] = cmd.type;
     // NOTE: Loading the command body into the buffer.
