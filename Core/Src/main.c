@@ -128,7 +128,7 @@ int main(void)
   command_processor_init();
   touch_init();
   afe_initialize();
-  
+  afe_set_sampling_paras(SAMPLE_SPEED_MEDIUM,10000);
   tasks_initialization();
   osKernelStart();
   /* USER CODE END 2 */

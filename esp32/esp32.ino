@@ -33,8 +33,6 @@ static const uint16_t TCP_PORT_RECIEVE = 7000;
 
 static const short int MAX_SPI_BUFFER = 4096;
 static const char SCAN_MESSAGE[] = "SCOPEN_SCAN";
-static const int CONNECTION_TIMEOUT = 2;
-static const int SPI_CONNECTION_TIMEOUT = 10;
 
 static const uint16_t SPI_SPEED = 10000000;
 static const int MISO_PIN = 13;
@@ -96,55 +94,40 @@ void IRAM_ATTR flagReadADCData(void) {
   intFlag = 1;
   Serial.println("");
   Serial.println("Interrupted");
-  if (incoming.dataCount > 0) {
-    if ((millis() - spi_recieve_timeout) > SPI_CONNECTION_TIMEOUT * 1000) {
-      incoming.dataCount = 0;
-    }
-    else {
-      intFlag = 0;
-    }
-  }
 }
 
 void upStreamTask(void* pvParameters) {
   while (true) {
-
     if (intFlag) {
       intFlag = 0;
-      spi_recieve_timeout = 0;
-      if (!(incoming.dataCount > 0)) {
-        read_header_stm(incoming.dataCount, incoming.dataType);
-        if (verify_cmd_from_stm(incoming.dataType)) {
-          send_ack_stm();
+      read_header_stm(incoming.dataCount, incoming.dataType);
 
+      if (verify_cmd_from_stm(incoming.dataType)) {
+        if (CONNECTION_STATE == 1)
+          send_header_wifi(incoming.dataCount, incoming.dataType);
+
+        Serial.println("Reading and sending in chunks");
+        while (incoming.dataCount > 0) {
+          uint32_t readLength = incoming.dataCount > MAX_SPI_BUFFER ? MAX_SPI_BUFFER : incoming.dataCount;
+          read_message_stm(incoming.msg, readLength);
           if (CONNECTION_STATE == 1)
-            send_header_wifi(incoming.dataCount, incoming.dataType);
-          if (incoming.dataCount > 0)
-            spi_recieve_timeout = millis();
-
-          Serial.println("Reading and sending in chunks");
-          while (verify_cmd_from_stm(incoming.dataType) && incoming.dataCount > 0) {
-            uint32_t readLength = incoming.dataCount > MAX_SPI_BUFFER ? MAX_SPI_BUFFER : incoming.dataCount;
-            read_message_stm(incoming.msg, readLength);
-            if (CONNECTION_STATE == 1)
-              write_message_wifi(incoming.msg, readLength);
-            incoming.dataCount = incoming.dataCount - readLength;
-            Serial.println(incoming.dataCount);
-            send_ack_stm();
-            Serial.println("");
-          }
+            write_message_wifi(incoming.msg, readLength);
+          incoming.dataCount = incoming.dataCount - readLength;
+          Serial.println(incoming.dataCount);
+          Serial.println("");
         }
-        else {
-          Serial.println("Wrong header datatype sent from SPI");
-          incoming.dataCount = 0;
-        }
+        send_ack_stm();
+        incoming.dataCount = 0;
       }
-      incoming.dataCount = 0;
+      else {
+        Serial.println("Wrong header datatype sent from SPI");
+        incoming.dataCount = 0;
+      }
     }
-    delay(2);
+    delay(1);
   }
-  
 }
+
 
 
 
