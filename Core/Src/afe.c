@@ -18,8 +18,10 @@
 #include "afe.h"
 #include <math.h>
 #include "sram.h"
+#include "sthreads.h"
 #include "stm32g4xx_ll_hrtim.h"
 #include "stm32g4xx_ll_dma.h"
+#include "cmsis_os.h"
 
 #define ADC1_GPIO GPIO_PIN_0|GPIO_PIN_1
 #define ADC2_GPIO GPIO_PIN_6|GPIO_PIN_7
@@ -35,11 +37,24 @@
 
 #define ADC_SAMPLE_LENGTH     (sample_paras.sample_length)
 #define ADC_BUFFER_BASE       SRAM_BANK_ADDRESS
-#define ADC_BUFFER_A          ((uint16_t*)(ADC_BUFFER_BASE))
-#define ADC_BUFFER_B          ((uint16_t*)(ADC_BUFFER_BASE + sample_paras.sample_length * 1 * sizeof(uint16_t)))
-#define ADC_BUFFER_C          ((uint16_t*)(ADC_BUFFER_BASE + sample_paras.sample_length * 2 * sizeof(uint16_t)))
-#define ADC_BUFFER_D          ((uint16_t*)(ADC_BUFFER_BASE + sample_paras.sample_length * 3 * sizeof(uint16_t)))
+#define ADC_BUFFER_A          ((uint32_t*)(ADC_BUFFER_BASE))
+#define ADC_BUFFER_B          ((uint32_t*)(ADC_BUFFER_BASE + sample_paras.sample_length * 1 * sizeof(uint16_t)))
+#define ADC_BUFFER_C          ((uint32_t*)(ADC_BUFFER_BASE + sample_paras.sample_length * 2 * sizeof(uint16_t)))
+#define ADC_BUFFER_D          ((uint32_t*)(ADC_BUFFER_BASE + sample_paras.sample_length * 3 * sizeof(uint16_t)))
 
+/**
+ * @brief Global switch to control whether the sampling is enabled.
+ * 
+ */
+osMutexId mutex_sample_ctrl;
+bool sampling_enabled = false;
+
+/**
+ * @brief Records the sampling length of the last conversion. 
+ * This vairable is needed because when sending the data, it needs to know how many data it converted.
+ * @note this variable should only be modifed in afe_sampling_trigger (before the conversion starts).
+ */
+uint32_t last_conv_length;
 
 /**
  * @brief Sample parameters used by the current ADC.
@@ -52,6 +67,7 @@ sample_paras_t sample_paras = {0};
  * @note  These values should be selected to make the hrtim and ADC run at the performance that the Scopen-App expects. 
  *        These values are calculated based on the system frequency (input to HRTIM1) to be 170MHz. Make sure the system frequency is correct.  
  */
+osMutexId mutex_sample_paras;
 const sample_config_t sample_configs[] = {
   {.timer_prescaler = HRTIM_PRESCALERRATIO_MUL32,  .timer_period = 362},        // 15MHz Sampling Speed
   {.timer_prescaler = HRTIM_PRESCALERRATIO_MUL32,  .timer_period = 5434},       // 1MHz Sampling Speed   
@@ -87,6 +103,12 @@ OPAMP_HandleTypeDef hopamp3;
  *        Uses afe_adc_initialize and afe_adc_hrtim_initialize
  */
 void afe_initialize(){
+    // Initialize the global configs and mutex.
+    osMutexDef(SampleSwitch);
+    osMutexDef(ParasMutex);
+    mutex_sample_ctrl = osMutexCreate(osMutex(SampleSwitch));
+    mutex_sample_paras = osMutexCreate(osMutex(ParasMutex));
+
     //Initializes Relay pin and sets it to off
     __HAL_RCC_GPIOA_CLK_ENABLE();
     GPIO_InitTypeDef GPIO_InitStruct = {0};
@@ -523,30 +545,78 @@ void afe_adc_hrtim_initialize(void)
 }
 
 /**
- * @brief Start sampling. This function will recalibrate the ADCs first and then start.
+ * @brief Trigger sampling. This function will recalibrate the ADCs first and then start.
  * Sampling length will be configured inside this function.
  */
-void afe_sampling_start() {
-    //calibrates all ADCs and starts them in DMA mode
-    HAL_ADCEx_Calibration_Start(&hadc1, ADC_DIFFERENTIAL_ENDED);
-    HAL_ADCEx_Calibration_Start(&hadc2, ADC_DIFFERENTIAL_ENDED);
-    HAL_ADCEx_Calibration_Start(&hadc4, ADC_DIFFERENTIAL_ENDED);
-    HAL_ADCEx_Calibration_Start(&hadc5, ADC_DIFFERENTIAL_ENDED);
-    HAL_ADC_Start_DMA(&hadc1, ADC_BUFFER_A, ADC_SAMPLE_LENGTH / 4);
-    HAL_ADC_Start_DMA(&hadc2, ADC_BUFFER_B, ADC_SAMPLE_LENGTH / 4);
-    HAL_ADC_Start_DMA(&hadc4, ADC_BUFFER_C, ADC_SAMPLE_LENGTH / 4);
-    HAL_ADC_Start_DMA(&hadc5, ADC_BUFFER_D, ADC_SAMPLE_LENGTH / 4);
-    HAL_HRTIM_SimpleBaseStart (&hhrtim1, HRTIM_TIMERINDEX_MASTER);
+void afe_sampling_trigger() {
+  // Lock the sampling parameters first.
+  osMutexWait(mutex_sample_paras, osWaitForever);
+  //calibrates all ADCs and starts them in DMA mode
+  HAL_ADCEx_Calibration_Start(&hadc1, ADC_DIFFERENTIAL_ENDED);
+  HAL_ADCEx_Calibration_Start(&hadc2, ADC_DIFFERENTIAL_ENDED);
+  HAL_ADCEx_Calibration_Start(&hadc4, ADC_DIFFERENTIAL_ENDED);
+  HAL_ADCEx_Calibration_Start(&hadc5, ADC_DIFFERENTIAL_ENDED);
+  HAL_ADC_Start_DMA(&hadc1, ADC_BUFFER_A, ADC_SAMPLE_LENGTH / 4);
+  HAL_ADC_Start_DMA(&hadc2, ADC_BUFFER_B, ADC_SAMPLE_LENGTH / 4);
+  HAL_ADC_Start_DMA(&hadc4, ADC_BUFFER_C, ADC_SAMPLE_LENGTH / 4);
+  HAL_ADC_Start_DMA(&hadc5, ADC_BUFFER_D, ADC_SAMPLE_LENGTH / 4);
+  HAL_HRTIM_SimpleBaseStart (&hhrtim1, HRTIM_TIMERINDEX_MASTER);
+  last_conv_length = ADC_SAMPLE_LENGTH;
+  osMutexRelease(mutex_sample_paras);
 }
 
-void afe_sampling_stop() {
+/**
+ * @brief Pause the hrtim to stop triggering the functions.
+ * 
+ */
+void afe_sampling_pause() {
   HAL_HRTIM_SimpleBaseStop(&hhrtim1, HRTIM_TIMERINDEX_MASTER);
 }
 
-bool afe_is_sampling_stopped() {
+/**
+ * @brief Call this function to set the pen into the sample mode.
+ * @note  Use this function instread of setting the sampling_enabled directly to avoid race condition.
+ */
+void afe_sampling_enable() {
+  osMutexWait(mutex_sample_ctrl, osWaitForever);
+  sampling_enabled = true;
+  osMutexRelease(mutex_sample_ctrl);
+}
+
+/**
+ * @brief Call this function to set the pen into stop mode.
+ * @note  Use this function instread of setting the sampling_enabled directly to avoid race condition.
+ */
+void afe_sampling_disable() {
+  osMutexWait(mutex_sample_ctrl, osWaitForever);
+  sampling_enabled = false;
+  osMutexRelease(mutex_sample_ctrl);
+}
+
+/**
+ * @brief Return if the hrtim is stopped so that it will not trigger the adc sampling.
+ * 
+ * @return true   The hrtim is stopped. No sampling will be triggered.
+ * @return false  The hrtim is running. Sampling is still happening.
+ */
+bool afe_is_sampling_paused() {
   if(LL_HRTIM_TIM_IsCounterEnabled(HRTIM1, LL_HRTIM_TIMER_MASTER))
     return false;
   return true;
+}
+
+/**
+ * @brief Check if the global switch is on or off.
+ * 
+ * @return true   The sampling is enabled.
+ * @return false  The sampling is disabled.
+ */
+bool afe_is_sampling_enabled() {
+  bool enabled;
+  osMutexWait(mutex_sample_ctrl, osWaitForever);
+  enabled = sampling_enabled;
+  osMutexRelease(mutex_sample_ctrl);
+  return enabled;
 }
 
 /**
@@ -558,6 +628,7 @@ bool afe_is_sampling_stopped() {
  */
 void afe_set_sampling_paras(uint8_t index, uint32_t length) {
   // Update the global sample parameters configuration.
+  osMutexWait(mutex_sample_paras, osWaitForever);
   sample_paras.sample_length = length;
   sample_paras.speed_option = index;
   
@@ -591,6 +662,22 @@ void afe_set_sampling_paras(uint8_t index, uint32_t length) {
   if (HAL_HRTIM_WaveformCompareConfig(&hhrtim1, HRTIM_TIMERINDEX_MASTER, HRTIM_COMPAREUNIT_3, &compareCfg) != HAL_OK) {
     Error_Handler();
   }
+  osMutexRelease(mutex_sample_paras);
+}
+
+/**
+ * @brief Get the current sampling parameters including the sampling length and sampling speed index.
+ * 
+ * @param index   A uint8_t* that points to the buffer to be filled.
+ * @param length  A uint32_t* that points to the buffer to be filled.
+ */
+void afe_get_current_sampling_paras(uint8_t* index, uint32_t* length) {
+  if (index == NULL || length == NULL)
+    return;
+  osMutexWait(mutex_sample_paras, osWaitForever);
+  *index = sample_paras.speed_option;
+  *length = sample_paras.sample_length;
+  osMutexRelease(mutex_sample_paras);
 }
 
 void afe_relay_control(bool on) {
@@ -692,7 +779,10 @@ void DMA2_Channel2_IRQHandler(void)
 {
   if(LL_DMA_IsActiveFlag_TC2(DMA2) && !LL_DMA_IsActiveFlag_HT2(DMA2)){ //adc5
     HAL_ADC_Stop_DMA(&hadc5);
-    afe_sampling_stop();
+    // Till this point, this sequence of the tranmission is done. Pause the hrtim for now, and focus on transmitting the data.
+    afe_sampling_pause();
+    // NOTE: Indicate the send data thread to transmit the sampled data.
+    osSignalSet(send_data_task, DATA_TRANS_SIG);
   }
   HAL_DMA_IRQHandler(&hdma_adc5);
 }

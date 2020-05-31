@@ -19,9 +19,6 @@ typedef struct {
   uint32_t sample_length;
 } sample_paras_t;
 
-
-extern sample_paras_t sample_paras;
-
 /**
  * @brief Sampling Speed Options (indices).
  * 
@@ -43,18 +40,22 @@ typedef struct {
   uint32_t timer_period;
 } sample_config_t;
 
-// extern uint8_t adc1Data[ADC_DATA_LENGTH];
-// extern uint8_t adc2Data[ADC_DATA_LENGTH];
-// extern uint8_t adc4Data[ADC_DATA_LENGTH];
-// extern uint8_t adc5Data[ADC_DATA_LENGTH];
+
+extern uint32_t last_conv_length;
+extern sample_paras_t sample_paras;
+
 void afe_initialize();
 void afe_adc_initialize();
 void afe_adc_hrtim_initialize();
-void afe_sampling_start();
-void afe_sampling_stop();
+void afe_sampling_trigger();
+void afe_sampling_pause();
+void afe_sampling_enable();
+void afe_sampling_disable();
 void afe_relay_control(bool on);
-bool afe_is_sampling_stopped();
+bool afe_is_sampling_paused();
+bool afe_is_sampling_enabled();
 void afe_set_sampling_paras(uint8_t index, uint32_t length);
+void afe_get_current_sampling_paras(uint8_t* index, uint32_t* length);
 void DMA1_Channel1_IRQHandler(void);
 void DMA2_Channel1_IRQHandler(void);
 void DMA1_Channel2_IRQHandler(void);
