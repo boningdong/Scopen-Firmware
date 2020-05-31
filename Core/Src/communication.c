@@ -93,7 +93,6 @@ ErrorStatus communication_wait_ack(uint8_t* buffer){
       return ERROR;
     if (*buffer == 'A')
       return SUCCESS;
-    osDelay(SPI_WAIT_ACK_TIMEOUT / tries);
     timer --;
   }
   return ERROR;
