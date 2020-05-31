@@ -19,19 +19,21 @@ bool sendHeaderWIFI(const uint32_t &dataSize, const uint8_t &dataType){
   constructHeader(header,dataSize,dataType);
   clientSend.write(header,HEADER_SIZE);
   clientSend.flush();
-  return waitForACKWIFI(10);
+  return waitForACKWIFI(100);
 }
 
 bool waitForACKWIFI(int timeout){
   unsigned long sec = millis();
   while(!(clientSend.available()>0) && !((millis()-sec)>timeout)){ //need timeout
   }
-
   if(clientSend.read() == (int)'A'){
     Serial.println("Recieved ACK WIFI");
     return true;
   }
-  Serial.println("No ACK recieved WIFI");
+  else{
+    Serial.println("Wrong ACK recieved WIFI");
+  }
+
   return false;
 }
 
@@ -70,24 +72,29 @@ bool udpListen(){
       udp.write((uint8_t*)scan_send_msg,1024);
       Serial.println(scan_send_msg);
       udp.endPacket();
-      serverRecieve.begin(TCP_PORT_RECIEVE);
-      serverSend.begin(TCP_PORT_SEND);
-      Serial.println("TCP Operation");
       return true;
     }
   }
   return false;
 }
-bool tcpStart(){
+
+void tcpStart(){
+  serverRecieve.begin(TCP_PORT_RECIEVE);
+  serverSend.begin(TCP_PORT_SEND);
+  Serial.println("TCP Sockets enabled");
+}
+
+bool checkTCPClient(){
   clientRecieve = serverRecieve.available();
   clientSend = serverSend.available();
-  delay(10);
+  delay(100);
   return clientRecieve && clientSend;
 }
+
 void tcpStop(){
   clientRecieve.stop();
   clientSend.stop();
-  Serial.println("Client disconnected");
+  Serial.println("TCP Socket stopped");
   serverRecieve.close();
   serverSend.close();
 }
