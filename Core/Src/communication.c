@@ -88,9 +88,9 @@ ErrorStatus communication_receive_block(uint8_t* buffer, uint16_t count, uint32_
 ErrorStatus communication_wait_ack(uint8_t* buffer){
   uint8_t timer = 10;
   uint8_t tries = timer;
+  *buffer = 0;
   while(timer){
-    if(communication_receive_block(buffer, 1, SPI_WAIT_ACK_TIMEOUT / tries) == ERROR)
-      return ERROR;
+    communication_receive_block(buffer, 1, SPI_WAIT_ACK_TIMEOUT / tries);
     if (*buffer == 'A')
       return SUCCESS;
     timer --;
@@ -131,23 +131,32 @@ void communication_transfer_message(uint8_t type, uint8_t* buffer, uint32_t leng
   }
   
   // Transfer the data.
-  while (length) {
-    // Transfer the body
-    uint16_t transfer_size = (length <= MAX_SPI_BUFFER_SIZE) ? length : MAX_SPI_BUFFER_SIZE;
-    communication_transmit(buffer, transfer_size * SPI_DMA_MEMWIDTH);
-    // Wait for the acknowledgement;
-    // NOTE: Need to make sure the tranmit is done. Or it will fuck up the data.
-    osSemaphoreWait(sem_transfer_done, osWaitForever);
-    status = communication_wait_ack(&ack);
-    if (status != SUCCESS) {
-      // Release the shared resources and stop.
-      printf("Didn't received valid body ACK\r\n");
-      osSemaphoreRelease(sem_transfer_occupied);
-      return;
-    }
-    length -= transfer_size;
-    buffer += transfer_size * SPI_DMA_MEMWIDTH;
-    printf("Done one round of transfer. Send left: %d\r\n", length);
+  // while (length) {
+  //   // Transfer the body
+  //   uint16_t transfer_size = (length <= MAX_SPI_BUFFER_SIZE) ? length : MAX_SPI_BUFFER_SIZE;
+  //   communication_transmit(buffer, transfer_size * SPI_DMA_MEMWIDTH);
+  //   // Wait for the acknowledgement;
+  //   // NOTE: Need to make sure the tranmit is done. Or it will fuck up the data.
+  //   osSemaphoreWait(sem_transfer_done, osWaitForever);
+  //   status = communication_wait_ack(&ack);
+  //   if (status != SUCCESS) {
+  //     // Release the shared resources and stop.
+  //     printf("Didn't received valid body ACK\r\n");
+  //     osSemaphoreRelease(sem_transfer_occupied);
+  //     return;
+  //   }
+  //   length -= transfer_size;
+  //   buffer += transfer_size * SPI_DMA_MEMWIDTH;
+  //   printf("Done one round of transfer. Send left: %d\r\n", length);
+  // }
+  communication_transfer(buffer, length * SPI_DMA_MEMWIDTH);
+  osSemaphoreWait(sem_transfer_done, osWaitForever);
+  status = communication_wait_ack(&ack);
+  if (status != SUCCESS) {
+    // Release the shared resources and stop.
+    printf("Didn't received valid body ACK.\r\n");
+    osSemaphoreRelease(sem_transfer_occupied);
+    return;
   }
   
   // Release the shared resources and stop.
