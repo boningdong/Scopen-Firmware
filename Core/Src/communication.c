@@ -86,7 +86,7 @@ ErrorStatus communication_receive_block(uint8_t* buffer, uint16_t count, uint32_
  * @return ErrorStatus  Return ErrorStatus code. For example, if succeed, you can see SUCCESS.
  */
 ErrorStatus communication_wait_ack(uint8_t* buffer){
-  uint8_t timer = 10;
+  uint8_t timer = 20;
   uint8_t tries = timer;
   *buffer = 0;
   while(timer){
