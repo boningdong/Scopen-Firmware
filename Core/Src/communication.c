@@ -23,14 +23,14 @@ static void _init_spi();
 static void _init_uart();
 static void _make_header(uint8_t* header, uint8_t type, uint32_t length);
 static void _make_header16(uint16_t* header, uint8_t type, uint32_t length);
-static void _init_transfer_semaphore();
+static void _init_transfer_locks();
 
 UART_HandleTypeDef huart1;
 SPI_HandleTypeDef hspi3;
 DMA_HandleTypeDef hdma_spi3_rx;
 DMA_HandleTypeDef hdma_spi3_tx;
 
-
+osMutexId mutex_transfer_done;
 osSemaphoreId sem_transfer_occupied;
 
 /**
@@ -39,14 +39,17 @@ osSemaphoreId sem_transfer_occupied;
  */
 void communication_initialization() {
   _init_spi();
-  _init_transfer_semaphore();
+  _init_transfer_locks();
   _init_uart();
 }
 
-// If the following functions need to be implemented in the interrupts, 
-// you can write comments inside these functions to tell me where to find the corresponding code.
-// Try to define the communication related functions and interrupts in this file.
-
+/**
+ * @brief This function handles transfering the data to ESP32. It will also toggling the interrupt to ask the
+ * ESP32 to start accepting the data.
+ * 
+ * @param buffer  A data buffer holding the data. Can be memory address.
+ * @param count   The data bytes span of the src memory that will be sent.
+ */
 void communication_transmit(uint8_t* buffer, uint16_t count) {
   HAL_SPI_Transmit_DMA(&hspi3, buffer, count);
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, GPIO_PIN_SET);
@@ -54,20 +57,44 @@ void communication_transmit(uint8_t* buffer, uint16_t count) {
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, GPIO_PIN_RESET);
 }
 
+/**
+ * @brief Used for receiving the data with the DMA.
+ * 
+ * @param buffer 
+ * @param count 
+ */
 void communication_receive(uint8_t* buffer, uint16_t count) {
-  HAL_SPI_RECEIVE_DMA(&hspi3,buffer,count);
+  HAL_SPI_Receive_DMA(&hspi3,buffer,count);
 }
 
-
-
+/**
+ * @brief Receive the data in block mode.
+ * 
+ * @param buffer    A data buffer for holding the received result.
+ * @param count     Count how many to receive.
+ * @param timeout   Wait for how long for the data.
+ * @return ErrorStatus  Return ErrorStatus code. For example, if succeed, you can see SUCCESS.
+ */
 ErrorStatus communication_receive_block(uint8_t* buffer, uint16_t count, uint32_t timeout) {
   return HAL_SPI_Receive(&hspi3, buffer, count, timeout);
 }
 
-void communication_wait_ack(uint8_t* buffer){
-  while(*buffer !='A'){
-    communication_receive_block(buffer, 1, SPI_WAIT_ACK_TIMEOUT);
+/**
+ * @brief Wait ack for a while. The timeout is determined by SPI_WAIT_ACK_TIMEOUT in the communication.h.
+ * 
+ * @param buffer        A data buffer for holding the received result.
+ * @return ErrorStatus  Return ErrorStatus code. For example, if succeed, you can see SUCCESS.
+ */
+ErrorStatus communication_wait_ack(uint8_t* buffer){
+  uint8_t timer = 10;
+  uint8_t tries = timer;
+  while(*buffer !='A' && timer){
+    if(communication_receive_block(buffer, 1, SPI_WAIT_ACK_TIMEOUT) == SUCCESS)
+      return SUCCESS;
+    osDelay(SPI_WAIT_ACK_TIMEOUT / tries);
+    timer --;
   }
+  return ERROR;
 }
 
 /**
@@ -88,14 +115,14 @@ void communication_transfer_message(uint8_t type, uint8_t* buffer, uint32_t leng
 
   osSemaphoreWait(sem_transfer_occupied, osWaitForever);
   // Transfer the header of the data.
-  communication_transmit(header, HEADER_SIZE * SPI_DMA_MEMWIDTH);
+  communication_transmit((uint8_t*)header, HEADER_SIZE * SPI_DMA_MEMWIDTH);
   // Wait to make sure the tranmission is done before waiting for the acknowledgement. Or it may fuck up the data.
-  osSignalWait(UNBLOCK_SIGNAL, osWaitForever);
+  osMutexWait(mutex_transfer_done, osWaitForever);
   // Wait for the acknowledgement.
-  // Need to make sure the tranmit is done. Or it will fuck up the data.
+  // Note: Need to make sure the tranmit is done. Or it will fuck up the data.
   //status = communication_receive_block(&ack, 1, SPI_WAIT_ACK_TIMEOUT);
-  communication_wait_ack(&ack);
-  if (status != SUCCESS || ack != 'A') {
+  status = communication_wait_ack(&ack);
+  if (status != SUCCESS) {
     // Release the shared resources and stop.
     printf("Didn't received valid header ACK\r\n");
     osSemaphoreRelease(sem_transfer_occupied);
@@ -108,9 +135,10 @@ void communication_transfer_message(uint8_t type, uint8_t* buffer, uint32_t leng
     uint16_t transfer_size = (length <= MAX_SPI_BUFFER_SIZE) ? length : MAX_SPI_BUFFER_SIZE;
     communication_transmit(buffer, transfer_size * SPI_DMA_MEMWIDTH);
     // Wait for the acknowledgement;
-    osSignalWait(UNBLOCK_SIGNAL, osWaitForever);
-    status = communication_receive_block(&ack, 1, SPI_WAIT_ACK_TIMEOUT);
-    if (status != SUCCESS || ack != 'A') {
+    // NOTE: Need to make sure the tranmit is done. Or it will fuck up the data.
+    osMutexWait(mutex_transfer_done, osWaitForever);
+    status = communication_wait_ack(&ack);
+    if (status != SUCCESS) {
       // Release the shared resources and stop.
       printf("Didn't received valid body ACK\r\n");
       osSemaphoreRelease(sem_transfer_occupied);
@@ -150,11 +178,6 @@ ErrorStatus communication_uart_send(uint8_t* buffer, uint16_t size, uint32_t tim
 
 
 /**
- * @defgroup Static methods
- * 
- */
-
-/**
  * @brief Fill the passed-in header for based on the transfering data.
  * 
  * @param header  The header array that will be filled with the length and type info.
@@ -169,6 +192,13 @@ static void _make_header(uint8_t* header, uint8_t type, uint32_t length) {
   }
 }
 
+/**
+ * @brief Fill the passed-in header for based on the transfering data with 16bit slot.
+ * 
+ * @param header  The header array that will be filled with the length and type info.
+ * @param type    Command type. Defined in the commands.h
+ * @param length  The length information of the payload.
+ */
 static void _make_header16(uint16_t* header, uint8_t type, uint32_t length) {
   header[HEADER_SIZE - 1] = type;
   for (uint8_t i = 0; i < HEADER_SIZE_FIELD; i++) {
@@ -181,10 +211,12 @@ static void _make_header16(uint16_t* header, uint8_t type, uint32_t length) {
  * @brief Initialize the tranfer occupied semaphore so that it can accept one token.
  * 
  */
-static void _init_transfer_semaphore() {
+static void _init_transfer_locks() {
+  osMutexDef(MutexSendDone);
+  mutex_transfer_done = osMutexCreate(osMutex(MutexSendDone));
   osSemaphoreDef(SemSpiBusy);
   sem_transfer_occupied = osSemaphoreCreate(osSemaphore(SemSpiBusy), 1);
-  printf("SPI Tranfer Semaphore is initialized.\r\n");
+  printf("SPI Tranfer Semaphore and mutex are initialized.\r\n");
 }
 
 /**
@@ -345,11 +377,6 @@ static void _init_uart() {
 
 
 /**
- * @defgroup Interrupt handlers.
- * 
- */
-
-/**
  * @brief DMA1 Interrupt handler. It will be called after data received.
  * 
  */
@@ -366,11 +393,10 @@ void DMA1_Channel3_IRQHandler(void)
 void DMA1_Channel4_IRQHandler(void)
 {
   if(LL_DMA_IsActiveFlag_TC4(DMA1)) {
-    //Triggers the ESP32 Interrupt
+    // Triggers the ESP32 Interrupt
     HAL_SPI_DMAStop(&hspi3);
-    
-    osSignalSet(send_cmd_task, UNBLOCK_SIGNAL);
-    
+    // Note: Need to indicate the communication tranfer thread the transfer is done.
+    osMutexRelease(mutex_transfer_done);
   }
   HAL_DMA_IRQHandler(&hdma_spi3_tx);
 }
