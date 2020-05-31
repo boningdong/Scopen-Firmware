@@ -89,7 +89,7 @@ ErrorStatus communication_wait_ack(uint8_t* buffer){
   uint8_t timer = 10;
   uint8_t tries = timer;
   while(timer){
-    if(communication_receive_block(buffer, 1, SPI_WAIT_ACK_TIMEOUT) == ERROR)
+    if(communication_receive_block(buffer, 1, SPI_WAIT_ACK_TIMEOUT / tries) == ERROR)
       return ERROR;
     if (*buffer == 'A')
       return SUCCESS;
