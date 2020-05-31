@@ -18,6 +18,7 @@
 #include "afe.h"
 #include <math.h>
 #include "sram.h"
+#include "communication.h"
 #include "sthreads.h"
 #include "stm32g4xx_ll_hrtim.h"
 #include "stm32g4xx_ll_dma.h"
@@ -37,7 +38,7 @@
 
 #define ADC_SAMPLE_LENGTH     (sample_paras.sample_length)
 #define ADC_BUFFER_BASE       SRAM_BANK_ADDRESS
-#define ADC_BUFFER_A          ((uint32_t*)(ADC_BUFFER_BASE))
+#define ADC_BUFFER_A          ((uint32_t*)(ADC_BUFFER_BASE + HEADER_SIZE * sizeof(uint16_t)))
 #define ADC_BUFFER_B          ((uint32_t*)(ADC_BUFFER_BASE + sample_paras.sample_length * 1 * sizeof(uint16_t)))
 #define ADC_BUFFER_C          ((uint32_t*)(ADC_BUFFER_BASE + sample_paras.sample_length * 2 * sizeof(uint16_t)))
 #define ADC_BUFFER_D          ((uint32_t*)(ADC_BUFFER_BASE + sample_paras.sample_length * 3 * sizeof(uint16_t)))

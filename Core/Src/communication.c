@@ -164,6 +164,26 @@ void communication_transfer_message(uint8_t type, uint8_t* buffer, uint32_t leng
   osSemaphoreRelease(sem_transfer_occupied);
 }
 
+/**
+ * @brief This function will tranmit the data, which includes the header and body in the same chunk.
+ * 
+ * @param buffer  Pointer of the message. The buffer should be uint16_t buffer. Save the uint8_t data in the lower byte. Note ARM is little endian.
+ * @param length  Length is the length of the data. Note here it means how many data elements.
+ * @note          The length should be the data length + the header length.
+ */
+void communication_transfer_message_in_chunk(uint16_t* buffer, uint32_t length) {
+  uint8_t ack;
+  ErrorStatus status;
+  osSemaphoreWait(sem_transfer_occupied, osWaitForever);
+  communication_transmit((uint8_t*)buffer, length * SPI_DMA_MEMWIDTH);
+  osSemaphoreWait(sem_transfer_done, osWaitForever);
+  status = communication_wait_ack(&ack);
+  if (status != SUCCESS) {
+    printf("Didn't receive valid body ACK.\r\n");
+  } else
+    printf("SPI Transfering succeed.\r\n");
+  osSemaphoreRelease(sem_transfer_occupied);
+}
 
 /**
  * @brief Wrapper function for the uart communication on this platform.

@@ -56,11 +56,22 @@ void task_send_command() {
     printf("Sending pen cmd to PC.\r\n");
     command_t cmd = command_send_dequeue();
     osSemaphoreRelease(sem_send_slots);
-    communication_transfer_message(cmd.type, cmd.argv, cmd.argc);
+    // NOTE: Making the buffer and the header together.
+    uint16_t* buffer = (uint16_t*) malloc(sizeof(uint16_t) * (HEADER_SIZE + cmd.argc));
+    buffer[3] = cmd.argc;
+    buffer[4] = cmd.type;
+    // NOTE: Loading the command body into the buffer.
+    for (int i = 0; i < cmd.argc; i++) 
+      buffer[HEADER_SIZE + i] = cmd.argv[i];
+    
+    // Call the function to transmit the transfer in whole.
+    // NOTE: This function will not return until the transmission is done.
+    communication_transfer_message_in_chunk(buffer, HEADER_SIZE + cmd.argc);
+    // REVIEW: communication_transfer_message(cmd.type, cmd.argv, cmd.argc);
     // Free the dynamic memory allocated for the cmd.
     if (cmd.argv != NULL && cmd.argc != 0)
       free(cmd.argv);
-    
+    free(buffer);    
   }
 }
 
@@ -78,11 +89,23 @@ void task_send_data() {
     // And the DMA function will send the following signal.
     osSignalWait(DATA_TRANS_SIG, osWaitForever);
     printf("Sending data to PC.\r\n");
-    // NOTE: Because the data is saved in the external SRAM here. So we use the SRAM memory address.
-    // NOTE: Even though the SRAM is 16bit width memory, we use uint8_t* here to follow the function signature.
-    //       SPI DMA will handle the conversion from the 16 bit width data to the SPI register directly.
-    uint8_t* result_buffer = (uint8_t*) SRAM_BANK_ADDRESS;
-    communication_transfer_message(CMD_DATA, result_buffer, last_conv_length);
+
+    // REVIEW: Old protocol
+    // // NOTE: Because the data is saved in the external SRAM here. So we use the SRAM memory address.
+    // // NOTE: Even though the SRAM is 16bit width memory, we use uint8_t* here to follow the function signature.
+    // //       SPI DMA will handle the conversion from the 16 bit width data to the SPI register directly.
+    // // uint8_t* result_buffer = (uint8_t*) SRAM_BANK_ADDRESS;
+    // // communication_transfer_message(CMD_DATA, result_buffer, last_conv_length);
+
+    // NOTE: Making the header here and save it into the sram.
+    uint16_t* buffer = (uint16_t*) SRAM_BANK_ADDRESS;
+    uint8_t* length = (uint8_t*)(&last_conv_length);
+    for (int i = 0; i < HEADER_SIZE_FIELD; i++)
+      buffer[i] = length[sizeof(uint32_t) - 1 - i];
+    buffer[4] = CMD_DATA;
+    // NOTE: Start the transmission.
+    communication_transfer_message_in_chunk(buffer, HEADER_SIZE + last_conv_length);
+
     // NOTE: check if the sampling global switch is enabled. If it is enabled run a new sequence of sampling again.
     if(afe_is_sampling_enabled())
       afe_sampling_trigger();
