@@ -141,7 +141,7 @@ void setup()
   penIP = WiFi.softAPIP();
   Serial.println("AP IP address: ");
   Serial.println(penIP);
-  xTaskCreatePinnedToCore(upStreamTask, "downStream", 10000, NULL, 6, NULL, 0);
+  xTaskCreate(upStreamTask, "downStream", 10000, NULL, 6, NULL);
   pinMode(SS_PIN, OUTPUT);
   digitalWrite(SS_PIN, HIGH);
   attachInterrupt(INTERRUPT_PIN, flagReadADCData, RISING);
