@@ -149,7 +149,7 @@ void communication_transfer_message(uint8_t type, uint8_t* buffer, uint32_t leng
   //   buffer += transfer_size * SPI_DMA_MEMWIDTH;
   //   printf("Done one round of transfer. Send left: %d\r\n", length);
   // }
-  communication_transfer(buffer, length * SPI_DMA_MEMWIDTH);
+  communication_transmit(buffer, length * SPI_DMA_MEMWIDTH);
   osSemaphoreWait(sem_transfer_done, osWaitForever);
   status = communication_wait_ack(&ack);
   if (status != SUCCESS) {
@@ -181,7 +181,7 @@ void communication_transfer_message_in_chunk(uint16_t* buffer, uint32_t length) 
   if (status != SUCCESS) {
     printf("Didn't receive valid body ACK.\r\n");
   } else
-    printf("SPI Transfering succeed.\r\n");
+    printf("SPI Transfering succeed.\r\n\r\n");
   osSemaphoreRelease(sem_transfer_occupied);
 }
 

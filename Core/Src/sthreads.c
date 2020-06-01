@@ -35,7 +35,7 @@ void tasks_initialization() {
   osThreadDef(SendData, task_send_data, osPriorityHigh, 0, 64);
   osThreadDef(ExecCmd, task_exec_command, osPriorityNormal, 0, 64);
   osThreadDef(WaitUart, task_listen_uart, osPriorityNormal, 0, 64);
-  osThreadDef(EventHandle, task_handle_event, osPriorityRealtime, 0, 64);
+  osThreadDef(EventHandle, task_handle_event, osPriorityNormal, 0, 64);
   send_cmd_task = osThreadCreate(osThread(SendCmd), NULL);
   send_data_task = osThreadCreate(osThread(SendData), NULL);
   exec_cmd_task = osThreadCreate(osThread(ExecCmd), NULL);
@@ -130,14 +130,14 @@ void task_exec_command() {
   osSemaphoreWait(sem_commands_recv, osWaitForever);
   for(;;) {
     osSemaphoreWait(sem_commands_recv, osWaitForever);
-    printf("Handling received cmd.\r\n");
     command_t cmd = command_recv_dequeue();
     osSemaphoreRelease(sem_recv_slots);
+    printf("Executing cmd: 0x%x\r\n", cmd.type);
     command_execute(&cmd);
     if(cmd.argv != NULL && cmd.argc != 0) {
       free(cmd.argv);
     }
-    printf("Done with a cmd.\r\n");
+    printf("Done with a cmd.\r\n\r\n");
   }
 }
 
@@ -212,6 +212,7 @@ void task_listen_uart() {
     osSemaphoreWait(sem_recv_slots, osWaitForever);
     command_recv_enqueue(cmd);
     osSemaphoreRelease(sem_commands_recv);
+    printf("Uart received cmd succeed!\r\n\r\n");
   } 
 }
 
