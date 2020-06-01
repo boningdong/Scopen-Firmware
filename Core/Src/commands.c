@@ -227,6 +227,7 @@ static void _set_volt_handle(command_t* cmd) {
  * @param cmd Pointer to the command_t object.
  */
 static void _set_sample_paras_handle(command_t* cmd) {
+  printf("Setting sample.\r\n");
   if (cmd == NULL) {
     printf("Invalid cmd pointer.\r\n");
     return;

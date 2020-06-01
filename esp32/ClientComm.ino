@@ -1,80 +1,8 @@
-void read_message_wifi(uint8_t* msg, const uint32_t& data_size) {
-  //while(!(clientRecieve.available()>0)){}
-  //  Serial.print("Recieved WIFI Data: ");
-  clientRecieve.read(msg, data_size);
-  clientRecieve.flush();
-}
-
-void read_header_wifi(uint32_t &data_size, uint8_t &data_type) {
-  byte header[HEADER_SIZE];
-  clientRecieve.read(header, HEADER_SIZE);
-  parseBigEndian(header, data_size);
-  data_type = header[HEADER_SIZE - 1];
-  clientRecieve.flush();
-  //    Serial.print("Data size: "); Serial.println(data_size);
-  //    Serial.print("Data type: "); Serial.println(data_type);
-}
-
-bool send_header_wifi(const uint32_t &data_size, const uint8_t &data_type) {
-  assert(clientSend.connected());
-  byte header[HEADER_SIZE];
-  constructHeader(header, data_size, data_type);
-  if (clientSend.available() > 0) {
-    clientSend.flush();
-  }
-  clientSend.write(header, HEADER_SIZE);
-
-  return wait_for_ack_wifi(20);
-}
-
-bool wait_for_ack_wifi(int timeout) {
-  unsigned long sec = millis(); unsigned long current_time = millis();
-  //  Serial.print("sec: "); Serial.println(sec);
-  while (!(clientSend.available() > 0) && !((current_time - sec) > timeout)) {
-    current_time = millis();
-  }
-  Serial.println("after");
-  Serial.println(clientSend.available());
-  if ((current_time - sec) >= timeout) {
-    Serial.println("WIFI ACK timed out");
-    return false;
-  }
-  if (clientSend.available() == 1) {
-    if (clientSend.read() == (int)'A') {
-      //    clientSend.flush();
-      Serial.println("here");
-      return true;
-    }
-    else {
-      //    clientSend.flush();
-      Serial.println("Wrong ACK recieved WIFI");
-      return false;
-    }
-  }
-
-}
-
-void send_ack_wifi() {
-  clientRecieve.write('A');
-}
-
-bool write_message_wifi(const uint8_t* msg, const uint32_t &data_length) {
-  assert(clientSend.connected());
-  //  Serial.println("Sending WIFI message");
-  //  Serial.print("Sent: ");
-  if (clientSend.available() > 0) {
-    clientSend.flush();
-  }
-  clientSend.write(msg, data_length);
-  return wait_for_ack_wifi(20);
-}
-
-bool verify_cmd_from_user(const uint8_t &data_type) {
-  return data_type == CMD_START_SAMPLE || data_type == CMD_STOP_SAMPLE
-         || data_type == CMD_CHECK_BAT || data_type == CMD_SET_VOLTAGE
-         || data_type == CMD_SET_SAMPLE_PARAS;
-}
-
+/**
+ * @brief Checks if UDP RX port received the SCAN_MESSAGE.
+ * 
+ * @return True if SCAN_MESSAGE was recieved in UDP port
+ */
 bool udp_listen() {
   int packsize = udp.parsePacket();
   char package_buffer[256];
@@ -85,9 +13,9 @@ bool udp_listen() {
       userIP = udp.remoteIP();
       Serial.print("User ip: ");
       Serial.println(userIP);
-      String temp = "<105|1|105|" + penIP.toString() + '|' + TCP_PORT_RECIEVE + '|' + TCP_PORT_SEND + '>';
+      String temp = "<105|1|105|" + penIP.toString() + '|' + TCP_PORT_RX + '|' + TCP_PORT_TX + '>';
       temp.toCharArray(scan_send_msg, 1024);
-      udp.beginPacket(userIP, SCAN_SEND_PORT);
+      udp.beginPacket(userIP, SCAN_REPLY_PORT);
       udp.write((uint8_t*)scan_send_msg, 1024);
       Serial.println(scan_send_msg);
       udp.endPacket();
@@ -97,23 +25,32 @@ bool udp_listen() {
   return false;
 }
 
+/**
+ * @brief Starts the TCP RX and TX sockets.
+ */
 void tcp_start() {
-  serverRecieve.begin(TCP_PORT_RECIEVE);
-  serverSend.begin(TCP_PORT_SEND);
+  serverRX.begin(TCP_PORT_RX);
+  serverTX.begin(TCP_PORT_TX);
   Serial.println("TCP Sockets enabled");
 }
 
-bool check_tcp_client() {
-  clientRecieve = serverRecieve.available();
-  clientSend = serverSend.available();
-  delay(100);
-  return clientRecieve && clientSend;
+/**
+ * @brief Stops the TCP RX and TX sockets.
+ */
+void tcp_stop() {
+  clientRX.stop();
+  clientTX.stop();
+  Serial.println("TCP Socket stopped");
+  serverRX.close();
+  serverTX.close();
 }
 
-void tcp_stop() {
-  clientRecieve.stop();
-  clientSend.stop();
-  Serial.println("TCP Socket stopped");
-  serverRecieve.close();
-  serverSend.close();
+/**
+ * @brief Checks if someone connected to TCP RX and TX sockets.
+ */
+bool check_tcp_client() {
+  clientRX = serverRX.available();
+  clientTX = serverTX.available();
+  delay(100);
+  return clientTX && clientTX;
 }
