@@ -44,13 +44,13 @@ void touch_init() {
   // Set touch parameters
   iqs266_set_touch_base_value(3, true);
   iqs266_set_touch_ati_target(35, true);
-  iqs266_set_touch_sensitivity(ALL, 55, true);
+  iqs266_set_touch_sensitivity(ALL, 45, true);
   // Set tap parameters.
   iqs266_set_tap_timeout(75, true);
   iqs266_set_tap_threshold(35, true);
   // Set swipe parameters
   iqs266_set_swipe_timeout(150, true);
-  iqs266_set_swipe_threshold(20, true);
+  iqs266_set_swipe_threshold(30, true);
   // Set autotune.
   iqs266_auto_tune(false);
   // Delay 100ms to make sure the system is ready.
@@ -83,14 +83,18 @@ void EXTI15_10_IRQHandler(void) {
       }
     } else if(events.swipe) {
       if (gestures.swipeUp) {
-        latest_cmd.type = CMD_SWIPE_UP;
+        // Note, here the up/down is determined by the touchpad direction.
+        // Determine this value by testing.
+        latest_cmd.type = CMD_SWIPE_DOWN;
         latest_cmd.argv = (uint8_t*) malloc(1);
         latest_cmd.argv[0] = 0xff;
         latest_cmd.argc = 1;
         osSignalSet(event_handle_task, USER_INPUT_SIG);
       }
       else if (gestures.swipeDown) {
-        latest_cmd.type = CMD_SWIPE_DOWN;
+        // Note, here the up/down is determined by the touchpad direction.
+        // Determine this value by testing.
+        latest_cmd.type = CMD_SWIPE_UP;
         latest_cmd.argv = (uint8_t*) malloc(1);
         latest_cmd.argv[0] = 0xff;
         latest_cmd.argc = 1;
