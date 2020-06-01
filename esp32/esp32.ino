@@ -126,8 +126,8 @@ uint8_t interrupt_flag = 0;
 
 void IRAM_ATTR flagReadADCData(void) {
   interrupt_flag = 1;
-  Serial.println("");
-  Serial.println("Interrupted");
+//  Serial.println("");
+//  Serial.println("Interrupted");
 }
 
 void upStreamTask(void* pvParameters) {

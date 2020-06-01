@@ -122,6 +122,11 @@ void afe_initialize(){
 
     //DAC for gain control in VGA
     __HAL_RCC_DAC1_CLK_ENABLE();
+    GPIO_InitStruct.Pin = GPIO_PIN_4;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
     DAC_ChannelConfTypeDef sConfig = {0};
     hdac1.Instance = DAC1;
     if (HAL_DAC_Init(&hdac1) != HAL_OK)
@@ -145,6 +150,7 @@ void afe_initialize(){
     //DAC for VCM control in DIFF AMP
     //Enables opamp buffer first then the DAC peripheral
     __HAL_RCC_GPIOB_CLK_ENABLE();
+    __HAL_RCC_DAC3_CLK_ENABLE();
     GPIO_InitStruct.Pin = GPIO_PIN_1;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
@@ -200,6 +206,7 @@ void afe_initialize(){
     HAL_NVIC_EnableIRQ(DMA2_Channel2_IRQn);
     afe_adc_initialize();
     afe_adc_hrtim_initialize();
+    HAL_OPAMP_Start(&hopamp3);
     HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
     HAL_DAC_Start(&hdac3, DAC_CHANNEL_2);
 }
@@ -695,7 +702,7 @@ void afe_set_gain(uint8_t mode) {
   float vga_in;
   float dac_output_analog;
   uint32_t dac_output_digitized;
-  float pkpk = 1.5;
+  float pkpk = 1.8;
   float attenuated; 
   if(mode <= 4){
     afe_relay_control(1);
@@ -742,14 +749,14 @@ void afe_set_gain(uint8_t mode) {
     }
   vga_in = (gaindb - 12.65) / 19.7;
   dac_output_analog = (vga_in + 1.8) / 2;
-  dac_output_digitized = (dac_output_analog+0.892)*(0xfff+1)/1.8;
+  dac_output_digitized = (dac_output_analog)*(0xfff+1)/1.8;
   HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_12B_R, dac_output_digitized);
 }
 
 void afe_set_offset() {
-  float offset = 0.9;
-  offset = (offset+0.892)*(0xfff+1)/1.8;
-  HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_2, DAC_ALIGN_12B_R, offset);
+ // float offset= 0.9;
+//  offset = (offset)*(0xfff+1)/1.8;
+  HAL_DAC_SetValue(&hdac3, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 2155);
 }
 
 void DMA1_Channel1_IRQHandler(void)
