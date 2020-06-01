@@ -204,7 +204,7 @@ void downStreamTask(void* pvParameters) {
   isConnected = false;
   downStream = false;
   udp.begin(SCAN_LISTEN_PORT);
-  vTaskDelete(&downStream_handle);
+  vTaskDelete(downStream_handle);
 }
 
 
@@ -245,7 +245,7 @@ void loop()
     Serial.println("Connected");
     isConnected = true;
     if (downStream)
-      vTaskDelete(&downStream_handle);
+      vTaskDelete(downStream_handle);
     xTaskCreate(downStreamTask, "downStream", 10000, NULL, 3, &downStream_handle);
     downStream = true;
   }
