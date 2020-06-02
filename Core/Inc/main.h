@@ -36,6 +36,7 @@ extern "C" {
 /* USER CODE BEGIN Includes */
 #include <stm32g4xx_ll_bus.h>
 #include <stm32g4xx_ll_cortex.h>
+#include <FreeRTOS.h>
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -52,6 +53,7 @@ extern SRAM_HandleTypeDef hsram1;
 typedef enum{
   false, true
 } bool;
+
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -61,7 +63,8 @@ typedef enum{
 
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
-
+#define os_malloc(size) pvPortMalloc(size)
+#define os_free(size)   vPortFree(size)
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/

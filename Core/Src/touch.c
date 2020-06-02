@@ -65,6 +65,7 @@ void touch_init() {
  */
 void EXTI15_10_IRQHandler(void) {
   // Check if this interrupt is caused by the touch sensor.
+  printf("Touch int\r\n");
   if (HAL_GPIO_ReadPin(GPIO_RDY_GROUP, GPIO_RDY_PIN) == GPIO_PIN_RESET) {
     // Disable interrupt.
     iqs266_disable_rdy_interrupt();
@@ -76,9 +77,6 @@ void EXTI15_10_IRQHandler(void) {
     if(events.tap) {
       if (gestures.tap) {
         latest_cmd.type = CMD_CHANGE_SEL;
-        latest_cmd.argv = (uint8_t*) malloc(1);
-        latest_cmd.argv[0] = 0xff;
-        latest_cmd.argc = 1;
         osSignalSet(event_handle_task, USER_INPUT_SIG);
       }
     } else if(events.swipe) {
@@ -86,18 +84,12 @@ void EXTI15_10_IRQHandler(void) {
         // Note, here the up/down is determined by the touchpad direction.
         // Determine this value by testing.
         latest_cmd.type = CMD_SWIPE_DOWN;
-        latest_cmd.argv = (uint8_t*) malloc(1);
-        latest_cmd.argv[0] = 0xff;
-        latest_cmd.argc = 1;
         osSignalSet(event_handle_task, USER_INPUT_SIG);
       }
       else if (gestures.swipeDown) {
         // Note, here the up/down is determined by the touchpad direction.
         // Determine this value by testing.
         latest_cmd.type = CMD_SWIPE_UP;
-        latest_cmd.argv = (uint8_t*) malloc(1);
-        latest_cmd.argv[0] = 0xff;
-        latest_cmd.argc = 1;
         osSignalSet(event_handle_task, USER_INPUT_SIG);
       }
     }
@@ -106,4 +98,5 @@ void EXTI15_10_IRQHandler(void) {
     iqs266_enable_rdy_interrupt();
   }
   HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_10);
+  printf("Touch int end\r\n");
 }

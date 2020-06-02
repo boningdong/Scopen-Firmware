@@ -8,7 +8,6 @@
  * @copyright Copyright (c) 2020
  * 
  */
-
 #include <stdlib.h>
 #include "sthreads.h"
 #include "cmsis_os.h"
@@ -31,11 +30,11 @@ osThreadId wait_uart_task;
 osThreadId event_handle_task;
 
 void tasks_initialization() {
-  osThreadDef(SendCmd, task_send_command, osPriorityNormal, 0, 64);
-  osThreadDef(SendData, task_send_data, osPriorityHigh, 0, 64);
-  osThreadDef(ExecCmd, task_exec_command, osPriorityNormal, 0, 64);
-  osThreadDef(WaitUart, task_listen_uart, osPriorityNormal, 0, 64);
-  osThreadDef(EventHandle, task_handle_event, osPriorityNormal, 0, 64);
+  osThreadDef(SendCmd, task_send_command, osPriorityNormal, 0, 96);
+  osThreadDef(SendData, task_send_data, osPriorityHigh, 0, 96);
+  osThreadDef(ExecCmd, task_exec_command, osPriorityNormal, 0, 96);
+  osThreadDef(WaitUart, task_listen_uart, osPriorityNormal, 0, 96);
+  osThreadDef(EventHandle, task_handle_event, osPriorityNormal, 0, 96);
   send_cmd_task = osThreadCreate(osThread(SendCmd), NULL);
   send_data_task = osThreadCreate(osThread(SendData), NULL);
   exec_cmd_task = osThreadCreate(osThread(ExecCmd), NULL);
@@ -54,11 +53,11 @@ void task_send_command() {
   for(;;) {
     // Send command
     osSemaphoreWait(sem_commands_send, osWaitForever);
-    printf("Sending pen cmd to PC.\r\n");
     command_t cmd = command_send_dequeue();
     osSemaphoreRelease(sem_send_slots);
+    printf("Sending pen cmd to PC.\r\n");
     // NOTE: Making the buffer and the header together.
-    uint16_t* buffer = (uint16_t*) malloc(sizeof(uint16_t) * (HEADER_SIZE + cmd.argc));
+    uint16_t* buffer = (uint16_t*) os_malloc(sizeof(uint16_t) * (HEADER_SIZE + cmd.argc));
     memset(buffer, 0, (HEADER_SIZE + cmd.argc) * sizeof(uint16_t));
     buffer[3] = cmd.argc;
     buffer[4] = cmd.type;
@@ -72,8 +71,8 @@ void task_send_command() {
     // REVIEW: communication_transfer_message(cmd.type, cmd.argv, cmd.argc);
     // Free the dynamic memory allocated for the cmd.
     if (cmd.argv != NULL && cmd.argc != 0)
-      free(cmd.argv);
-    free(buffer);    
+      os_free(cmd.argv);
+    os_free(buffer);    
   }
 }
 
@@ -135,7 +134,7 @@ void task_exec_command() {
     printf("Executing cmd: 0x%x\r\n", cmd.type);
     command_execute(&cmd);
     if(cmd.argv != NULL && cmd.argc != 0) {
-      free(cmd.argv);
+      os_free(cmd.argv);
     }
     printf("Done with a cmd.\r\n\r\n");
   }
@@ -166,11 +165,14 @@ void task_listen_uart() {
       uint8_t offset = HEADER_SIZE_FIELD - i - 1;
       length |= header_buffer[i] << (sizeof(uint8_t) * offset);
     }
+    if (length > 5) {
+      printf("Received command with body length > 5.\r\n");
+    }
 
     type = header_buffer[HEADER_SIZE - 1];
     // Check the validity of the type. If it's not validate, go back to wait for the header again.
     if (!command_validate(type)) {
-      printf("Uart received invalid type.[Header]\r\n");
+      printf("Uart received invalid header type.\r\n");
       continue;
     }
     
@@ -185,12 +187,12 @@ void task_listen_uart() {
     
     // REVIEW: Here the malloc may be not thread-safe. Change to thread-safe one if it's necessary.
     if (length > 0) {
-      body_buffer = (uint8_t*)malloc(sizeof(uint8_t) * length);
+      body_buffer = (uint8_t*)os_malloc(sizeof(uint8_t) * length);
       // NOTE: Here the cast should be fine. Because all of the commands will not have long body.
       status = communication_uart_receive(body_buffer, (uint16_t) length, UART_WAIT_BODY_TIMEOUT);
       if (status != SUCCESS) {
         printf("Uart receive body failed.\r\n");
-        free(body_buffer);
+        os_free(body_buffer);
         continue;
       }
     } else {
@@ -201,7 +203,7 @@ void task_listen_uart() {
     status = communication_uart_send(&ack, 1, UART_SEND_ACK_TIMEOUT);
     if (status != SUCCESS) {
       printf("Uart sent ack failed.[Body]\r\n");
-      free(body_buffer);
+      os_free(body_buffer);
       continue;
     }
     
@@ -232,6 +234,7 @@ void task_handle_event() {
     osSignalWait(USER_INPUT_SIG, osWaitForever);
     // Check whether there are enough slots.
     osSemaphoreWait(sem_send_slots, osWaitForever);
+    command_construct(&latest_cmd);
     command_send_enqueue(latest_cmd);
     osSemaphoreRelease(sem_commands_send);
   }
