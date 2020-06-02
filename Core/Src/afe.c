@@ -79,6 +79,16 @@ const sample_config_t sample_configs[] = {
   {.timer_prescaler = HRTIM_PRESCALERRATIO_DIV2,  .timer_period = 8503}        // 10KHz Sampling Speed
 };
 
+/**
+ * @brief Current selected gain mode. The gain mode is an int value that determines the gain. The gain values are precalculated and they
+ * are saved inside the afe_set_gain function.
+ * 
+ */
+uint8_t gainMode = 0;
+osMutexId gain_mode_lock;
+// TODO: Need to add synchronize control to set gain. And other places.
+// TODO: Implement the set gain function.
+
 DAC_HandleTypeDef hdac1;
 DAC_HandleTypeDef hdac3;
 
@@ -107,10 +117,12 @@ OPAMP_HandleTypeDef hopamp3;
  */
 void afe_initialize(){
     // Initialize the global configs and mutex.
+    osMutexDef(GainLock);
     osSemaphoreDef(SampleSwitch);
     osSemaphoreDef(ParasLock);
     sem_sample_ctrl = osSemaphoreCreate(osSemaphore(SampleSwitch), 1);
     sem_sample_paras = osSemaphoreCreate(osSemaphore(ParasLock), 1);
+    gain_mode_lock = osMutexCreate(osMutex(GainLock));
     
 
     //Initializes Relay pin and sets it to off
@@ -709,49 +721,50 @@ void afe_set_gain(uint8_t mode) {
   uint32_t dac_output_digitized;
   float pkpk = 1.8;
   float attenuated; 
-  if(mode <= 4){
+  if(mode < 4){
     afe_relay_control(1);
   }
   else{
     afe_relay_control(0);
   }
   switch(mode) {
-      case 1: //10mV/Division 100mVpp
+      case 0: //10mV/Division 100mVpp
         gaindb = 20*log10(pkpk / 0.1);  
         break; 
-      case 2: //20mV/Division 200mVpp
+      case 1: //20mV/Division 200mVpp
         gaindb = 20*log10(pkpk / 0.20);
         break; 
-      case 3: //50mV/Division 500mVpp
+      case 2: //50mV/Division 500mVpp
         gaindb = 20*log10(pkpk / 0.5);
         break; 
-      case 4: //100mV/Division 1Vpp
+      case 3: //100mV/Division 1Vpp
         gaindb = 20*log10(pkpk / 1.0);
         break; 
-      case 5: //200mV/Division 2Vpp
+      case 4: //200mV/Division 2Vpp
         gaindb = 20*log10(pkpk / 2.0);
         break; 
-      case 6: //500mV/Division 5Vpp                                                                                                                                                                                                                                                                                                             
+      case 5: //500mV/Division 5Vpp                                                                                                                                                                                                                                                                                                             
         attenuated = 5 * 0.024; 
         gaindb = 20*log10(pkpk / attenuated);
         break; 
-      case 7: //1V/Division 10vpp
+      case 6: //1V/Division 10vpp
        attenuated = 10 * 0.024; 
         gaindb = 20*log10(pkpk / attenuated);;
         break; 
-      case 8: //2V/Division 20Vpp
+      case 7: //2V/Division 20Vpp
         attenuated = 20 * 0.024; 
         gaindb = 20*log10(pkpk / attenuated);
         break; 
-      case 9: //5V/Division 50Vpp
+      case 8: //5V/Division 50Vpp
         attenuated = 50 * 0.024; 
         gaindb = 20*log10(pkpk / attenuated);
         break;
-      case 10: //10V/Division 100Vpp
+      case 9: //10V/Division 100Vpp
         attenuated = 100 * 0.024; 
         gaindb = 20*log10(pkpk / attenuated);
         break;   
     }
+  gainMode = mode;
   vga_in = (gaindb - 12.65) / 19.7;
   dac_output_analog = (vga_in + 1.8) / 2;
   dac_output_digitized = (dac_output_analog)*(0xfff+1)/1.8;
