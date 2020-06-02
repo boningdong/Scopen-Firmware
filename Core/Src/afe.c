@@ -23,6 +23,7 @@
 #include "stm32g4xx_ll_hrtim.h"
 #include "stm32g4xx_ll_dma.h"
 #include "cmsis_os.h"
+#include <stdio.h>
 
 #define ADC1_GPIO GPIO_PIN_0|GPIO_PIN_1
 #define ADC2_GPIO GPIO_PIN_6|GPIO_PIN_7
@@ -47,7 +48,8 @@
  * @brief Global switch to control whether the sampling is enabled.
  * 
  */
-osMutexId mutex_sample_ctrl;
+// osMutexId mutex_sample_ctrl;
+osSemaphoreId sem_sample_ctrl;
 bool sampling_enabled = false;
 
 /**
@@ -68,7 +70,7 @@ sample_paras_t sample_paras = {0};
  * @note  These values should be selected to make the hrtim and ADC run at the performance that the Scopen-App expects. 
  *        These values are calculated based on the system frequency (input to HRTIM1) to be 170MHz. Make sure the system frequency is correct.  
  */
-osMutexId mutex_sample_paras;
+osSemaphoreId sem_sample_paras;
 const sample_config_t sample_configs[] = {
   {.timer_prescaler = HRTIM_PRESCALERRATIO_MUL32,  .timer_period = 362},        // 15MHz Sampling Speed
   {.timer_prescaler = HRTIM_PRESCALERRATIO_MUL32,  .timer_period = 5434},       // 1MHz Sampling Speed   
@@ -105,10 +107,11 @@ OPAMP_HandleTypeDef hopamp3;
  */
 void afe_initialize(){
     // Initialize the global configs and mutex.
-    osMutexDef(SampleSwitch);
-    osMutexDef(ParasMutex);
-    mutex_sample_ctrl = osMutexCreate(osMutex(SampleSwitch));
-    mutex_sample_paras = osMutexCreate(osMutex(ParasMutex));
+    osSemaphoreDef(SampleSwitch);
+    osSemaphoreDef(ParasLock);
+    sem_sample_ctrl = osSemaphoreCreate(osSemaphore(SampleSwitch), 1);
+    sem_sample_paras = osSemaphoreCreate(osSemaphore(ParasLock), 1);
+    
 
     //Initializes Relay pin and sets it to off
     __HAL_RCC_GPIOA_CLK_ENABLE();
@@ -558,7 +561,7 @@ void afe_adc_hrtim_initialize(void)
  */
 void afe_sampling_trigger() {
   // Lock the sampling parameters first.
-  osMutexWait(mutex_sample_paras, osWaitForever);
+  osSemaphoreWait(sem_sample_paras, osWaitForever);
   //calibrates all ADCs and starts them in DMA mode
   HAL_ADCEx_Calibration_Start(&hadc1, ADC_DIFFERENTIAL_ENDED);
   HAL_ADCEx_Calibration_Start(&hadc2, ADC_DIFFERENTIAL_ENDED);
@@ -570,7 +573,7 @@ void afe_sampling_trigger() {
   HAL_ADC_Start_DMA(&hadc5, ADC_BUFFER_D, ADC_SAMPLE_LENGTH / 4);
   HAL_HRTIM_SimpleBaseStart (&hhrtim1, HRTIM_TIMERINDEX_MASTER);
   last_conv_length = ADC_SAMPLE_LENGTH;
-  osMutexRelease(mutex_sample_paras);
+  osSemaphoreRelease(sem_sample_paras);
 }
 
 /**
@@ -586,9 +589,9 @@ void afe_sampling_pause() {
  * @note  Use this function instread of setting the sampling_enabled directly to avoid race condition.
  */
 void afe_sampling_enable() {
-  osMutexWait(mutex_sample_ctrl, osWaitForever);
+  osSemaphoreWait(sem_sample_ctrl, osWaitForever);
   sampling_enabled = true;
-  osMutexRelease(mutex_sample_ctrl);
+  osSemaphoreRelease(sem_sample_ctrl);
 }
 
 /**
@@ -596,9 +599,9 @@ void afe_sampling_enable() {
  * @note  Use this function instread of setting the sampling_enabled directly to avoid race condition.
  */
 void afe_sampling_disable() {
-  osMutexWait(mutex_sample_ctrl, osWaitForever);
+  osSemaphoreWait(sem_sample_ctrl, osWaitForever);
   sampling_enabled = false;
-  osMutexRelease(mutex_sample_ctrl);
+  osSemaphoreRelease(sem_sample_ctrl);
 }
 
 /**
@@ -621,9 +624,9 @@ bool afe_is_sampling_paused() {
  */
 bool afe_is_sampling_enabled() {
   bool enabled;
-  osMutexWait(mutex_sample_ctrl, osWaitForever);
+  osSemaphoreWait(sem_sample_ctrl, osWaitForever);
   enabled = sampling_enabled;
-  osMutexRelease(mutex_sample_ctrl);
+  osSemaphoreRelease(sem_sample_ctrl);
   return enabled;
 }
 
@@ -636,7 +639,8 @@ bool afe_is_sampling_enabled() {
  */
 void afe_set_sampling_paras(uint8_t index, uint32_t length) {
   // Update the global sample parameters configuration.
-  osMutexWait(mutex_sample_paras, osWaitForever);
+  printf("[SET SAMPLE] Locking sample parameters...\r\n");
+  osSemaphoreWait(sem_sample_paras, osWaitForever);
   sample_paras.sample_length = length;
   sample_paras.speed_option = index;
   
@@ -670,7 +674,8 @@ void afe_set_sampling_paras(uint8_t index, uint32_t length) {
   if (HAL_HRTIM_WaveformCompareConfig(&hhrtim1, HRTIM_TIMERINDEX_MASTER, HRTIM_COMPAREUNIT_3, &compareCfg) != HAL_OK) {
     Error_Handler();
   }
-  osMutexRelease(mutex_sample_paras);
+  osSemaphoreRelease(sem_sample_paras);
+  printf("[SET SAMPLE] Unlocked sample parameters...\r\n");
 }
 
 /**
@@ -682,10 +687,10 @@ void afe_set_sampling_paras(uint8_t index, uint32_t length) {
 void afe_get_current_sampling_paras(uint8_t* index, uint32_t* length) {
   if (index == NULL || length == NULL)
     return;
-  osMutexWait(mutex_sample_paras, osWaitForever);
+  osSemaphoreWait(sem_sample_paras, osWaitForever);
   *index = sample_paras.speed_option;
   *length = sample_paras.sample_length;
-  osMutexRelease(mutex_sample_paras);
+  osSemaphoreRelease(sem_sample_paras);
 }
 
 void afe_relay_control(bool on) {
