@@ -112,10 +112,10 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_ADC1_Init();
-  MX_ADC2_Init();
-  MX_ADC4_Init();
-  MX_ADC5_Init();
+  // MX_ADC1_Init();
+  // MX_ADC2_Init();
+  // MX_ADC4_Init();
+  // MX_ADC5_Init();
   MX_FMC_Init();
   MX_I2C3_Init();
   MX_USART3_UART_Init();
@@ -128,7 +128,9 @@ int main(void)
   command_processor_init();
   touch_init();
   afe_initialize();
-  afe_set_sampling_paras(SAMPLE_SPEED_MEDIUM,10000);
+  afe_set_offset();
+  afe_set_gain(6);
+  afe_set_sampling_paras(SAMPLE_SPEED_LOW,20000);
   tasks_initialization();
   osKernelStart();
   /* USER CODE END 2 */
