@@ -68,6 +68,7 @@ void command_recv_enqueue(command_t cmd);
 command_t command_send_dequeue();
 command_t command_recv_dequeue();
 bool command_validate(uint8_t type);
-void command_execute();
+void command_construct(command_t* cmd);
+void command_execute(command_t* cmd);
 
 #endif

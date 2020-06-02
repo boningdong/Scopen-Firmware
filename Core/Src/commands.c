@@ -173,6 +173,32 @@ void command_execute(command_t* cmd) {
 }
 
 /**
+ * @brief Contstrut a command by filling its body and it's argc.
+ * This function is needed because we cannot construct the command in interrupt. 
+ * Because we cannot safely allocate memory in ISR.
+ * 
+ * @param cmd A pointer to a cmd that has a valid type.
+ */
+void command_construct(command_t* cmd) {
+  if(cmd == NULL)
+    return;
+  uint8_t type = cmd->type;
+  switch (type)
+  {
+  case CMD_CHANGE_SEL:
+  case CMD_SWIPE_DOWN:
+  case CMD_SWIPE_UP:
+    cmd->argc = 1;
+    cmd->argv = os_malloc(1);
+    *(cmd->argv) = 0xFF;
+    break;
+  default:
+    printf("[CMD CONSTRUCT] Invalid cmd type.\r\n");
+    break;
+  }
+}
+
+/**
  * @brief Handle the start sampling event. If the sampling has already been started.
  * Then there is no effect.
  * 
