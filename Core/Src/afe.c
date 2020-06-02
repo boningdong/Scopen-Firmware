@@ -85,7 +85,7 @@ const sample_config_t sample_configs[] = {
  * 
  */
 uint8_t gain_mode = 0;
-osMutexId gain_mode_lock;
+osSemaphoreId gain_mode_lock;
 
 DAC_HandleTypeDef hdac1;
 DAC_HandleTypeDef hdac3;
@@ -115,12 +115,12 @@ OPAMP_HandleTypeDef hopamp3;
  */
 void afe_initialize(){
     // Initialize the global configs and mutex.
-    osMutexDef(GainLock);
+    osSemaphoreDef(GainLock);
     osSemaphoreDef(SampleSwitch);
     osSemaphoreDef(ParasLock);
     sem_sample_ctrl = osSemaphoreCreate(osSemaphore(SampleSwitch), 1);
     sem_sample_paras = osSemaphoreCreate(osSemaphore(ParasLock), 1);
-    gain_mode_lock = osMutexCreate(osMutex(GainLock));
+    gain_mode_lock = osSemaphoreCreate(osSemaphore(GainLock), 1);
     
 
     //Initializes Relay pin and sets it to off
@@ -222,6 +222,7 @@ void afe_initialize(){
     HAL_OPAMP_Start(&hopamp3);
     HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
     HAL_DAC_Start(&hdac3, DAC_CHANNEL_2);
+    afe_set_offset();
 }
 
 void afe_adc_initialize() {
@@ -584,7 +585,7 @@ void afe_sampling_trigger() {
   HAL_HRTIM_SimpleBaseStart (&hhrtim1, HRTIM_TIMERINDEX_MASTER);
   last_conv_length = ADC_SAMPLE_LENGTH;
   osSemaphoreRelease(sem_sample_paras);
-  osMutexWait(gain_mode_lock, osWaitForever);
+  osSemaphoreWait(gain_mode_lock, osWaitForever);
 }
 
 /**
@@ -727,7 +728,7 @@ void afe_set_gain(uint8_t mode) {
   float pkpk = 1.8;
   float attenuated; 
 
-  osMutexWait(gain_mode_lock, osWaitForever);
+  osSemaphoreWait(gain_mode_lock, osWaitForever);
   if(mode < 4){
     afe_relay_control(1);
   }
@@ -776,14 +777,14 @@ void afe_set_gain(uint8_t mode) {
   dac_output_analog = (vga_in + 1.8) / 2;
   dac_output_digitized = (dac_output_analog)*(0xfff+1)/1.8;
   HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_12B_R, dac_output_digitized);
-  osMutexRelease(gain_mode_lock);
+  osSemaphoreRelease(gain_mode_lock);
 }
 
 int afe_get_gain_mode() {
   uint8_t mode;
-  osMutexWait(gain_mode_lock, osWaitForever);
+  osSemaphoreWait(gain_mode_lock, osWaitForever);
   mode = gain_mode;
-  osMutexRelease(gain_mode_lock);
+  osSemaphoreRelease(gain_mode_lock);
   return gain_mode;
 }
 
@@ -826,7 +827,7 @@ void DMA2_Channel2_IRQHandler(void)
     // NOTE: Indicate the send data thread to transmit the sampled data.
     osSignalSet(send_data_task, DATA_TRANS_SIG);
     // Release the gain mode lock to enable it to be sat.
-    osMutexRelease(gain_mode_lock);
+    osSemaphoreRelease(gain_mode_lock);
   }
   HAL_DMA_IRQHandler(&hdma_adc5);
 }
