@@ -11,7 +11,7 @@ bool send_header_stm(const uint32_t &data_size, const uint8_t &data_type){
   constructHeader(header,data_size,data_type);
   Serial2.write(header,HEADER_SIZE);
   Serial2.flush();
-  return wait_for_ack_stm(10);
+  return wait_for_ack_stm(50);
 }
 
 /**
@@ -32,7 +32,7 @@ bool write_message_stm(const uint8_t* msg, const uint32_t &data_length){
   }
   Serial.println("\n");
   Serial2.flush();
-  return wait_for_ack_stm(10);
+  return wait_for_ack_stm(50);
 }
 
 /**
