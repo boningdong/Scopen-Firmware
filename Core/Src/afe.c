@@ -585,7 +585,6 @@ void afe_sampling_trigger() {
   HAL_HRTIM_SimpleBaseStart (&hhrtim1, HRTIM_TIMERINDEX_MASTER);
   last_conv_length = ADC_SAMPLE_LENGTH;
   osSemaphoreRelease(sem_sample_paras);
-  osSemaphoreWait(gain_mode_lock, osWaitForever);
 }
 
 /**
@@ -651,7 +650,7 @@ bool afe_is_sampling_enabled() {
  */
 void afe_set_sampling_paras(uint8_t index, uint32_t length) {
   // Update the global sample parameters configuration.
-  printf("[SET SAMPLE] Locking sample parameters...\r\n");
+  printf("[SET SAMPLE] Locking...\r\n");
   osSemaphoreWait(sem_sample_paras, osWaitForever);
   sample_paras.sample_length = length;
   sample_paras.speed_option = index;
@@ -661,6 +660,9 @@ void afe_set_sampling_paras(uint8_t index, uint32_t length) {
   
   uint32_t sample_period = sample_configs[index].timer_period;
   uint32_t scaler = sample_configs[index].timer_prescaler;
+
+  osSemaphoreRelease(sem_sample_paras);
+  printf("[SET SAMPLE] Unlocked\r\n");
   
   // There are 4 ADCs, so the total period should be multiply the sample period by 4.
   timeCfg.Period = sample_period * 4;
@@ -686,8 +688,7 @@ void afe_set_sampling_paras(uint8_t index, uint32_t length) {
   if (HAL_HRTIM_WaveformCompareConfig(&hhrtim1, HRTIM_TIMERINDEX_MASTER, HRTIM_COMPAREUNIT_3, &compareCfg) != HAL_OK) {
     Error_Handler();
   }
-  osSemaphoreRelease(sem_sample_paras);
-  printf("[SET SAMPLE] Unlocked sample parameters...\r\n");
+
 }
 
 /**
@@ -699,10 +700,12 @@ void afe_set_sampling_paras(uint8_t index, uint32_t length) {
 void afe_get_current_sampling_paras(uint8_t* index, uint32_t* length) {
   if (index == NULL || length == NULL)
     return;
+  printf("[AFE GET SAMPLE] Locking.\r\n");
   osSemaphoreWait(sem_sample_paras, osWaitForever);
   *index = sample_paras.speed_option;
   *length = sample_paras.sample_length;
   osSemaphoreRelease(sem_sample_paras);
+  printf("[AFE GET SAMPLE] Unlocked.\r\n");
 }
 
 void afe_relay_control(bool on) {
@@ -785,7 +788,7 @@ int afe_get_gain_mode() {
   osSemaphoreWait(gain_mode_lock, osWaitForever);
   mode = gain_mode;
   osSemaphoreRelease(gain_mode_lock);
-  return gain_mode;
+  return mode;
 }
 
 void afe_set_offset() {
@@ -827,7 +830,7 @@ void DMA2_Channel2_IRQHandler(void)
     // NOTE: Indicate the send data thread to transmit the sampled data.
     osSignalSet(send_data_task, DATA_TRANS_SIG);
     // Release the gain mode lock to enable it to be sat.
-    osSemaphoreRelease(gain_mode_lock);
+    // osSemaphoreRelease(gain_mode_lock);
   }
   HAL_DMA_IRQHandler(&hdma_adc5);
 }

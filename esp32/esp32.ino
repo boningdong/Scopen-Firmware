@@ -216,7 +216,7 @@ void setup()
   Serial.println("Creating AP ...");
   WiFi.softAP(ssid, password);
   penIP = WiFi.softAPIP();
-  WiFi.setTxPower(WIFI_POWER_11dBm);
+  // WiFi.setTxPower(WIFI_POWER_11dBm);
   Serial.println("AP IP address: ");
   Serial.print(penIP);
 
