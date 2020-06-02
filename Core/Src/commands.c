@@ -243,8 +243,8 @@ static void _check_bat_handle(command_t* cmd) {
  * @param cmd Pointer to the command_t object.
  */
 static void _set_volt_handle(command_t* cmd) {
-  printf("Set voltage.\r\n");
-  // TODO: Need to implement this to set the gain.
+  if (afe_get_gain_mode() != cmd->argv[0])
+    afe_set_gain(cmd->argv[0]);
 }
 
 /**

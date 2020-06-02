@@ -50,6 +50,7 @@ void afe_adc_hrtim_initialize();
 void afe_sampling_trigger();
 void afe_set_offset();
 void afe_set_gain(uint8_t mode);
+int afe_get_gain_mode();
 void afe_sampling_pause();
 void afe_sampling_enable();
 void afe_sampling_disable();

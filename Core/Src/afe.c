@@ -84,10 +84,8 @@ const sample_config_t sample_configs[] = {
  * are saved inside the afe_set_gain function.
  * 
  */
-uint8_t gainMode = 0;
+uint8_t gain_mode = 0;
 osMutexId gain_mode_lock;
-// TODO: Need to add synchronize control to set gain. And other places.
-// TODO: Implement the set gain function.
 
 DAC_HandleTypeDef hdac1;
 DAC_HandleTypeDef hdac3;
@@ -586,6 +584,7 @@ void afe_sampling_trigger() {
   HAL_HRTIM_SimpleBaseStart (&hhrtim1, HRTIM_TIMERINDEX_MASTER);
   last_conv_length = ADC_SAMPLE_LENGTH;
   osSemaphoreRelease(sem_sample_paras);
+  osMutexWait(gain_mode_lock, osWaitForever);
 }
 
 /**
@@ -714,6 +713,12 @@ void afe_relay_control(bool on) {
     }
 }
 
+/**
+ * @brief Set the gain of the AFE part.
+ * 
+ * @param mode The gain index.
+ * @note Note this function is a synchronize.
+ */
 void afe_set_gain(uint8_t mode) {
   float gaindb;
   float vga_in;
@@ -721,6 +726,8 @@ void afe_set_gain(uint8_t mode) {
   uint32_t dac_output_digitized;
   float pkpk = 1.8;
   float attenuated; 
+
+  osMutexWait(gain_mode_lock, osWaitForever);
   if(mode < 4){
     afe_relay_control(1);
   }
@@ -764,11 +771,20 @@ void afe_set_gain(uint8_t mode) {
         gaindb = 20*log10(pkpk / attenuated);
         break;   
     }
-  gainMode = mode;
+  gain_mode = mode;
   vga_in = (gaindb - 12.65) / 19.7;
   dac_output_analog = (vga_in + 1.8) / 2;
   dac_output_digitized = (dac_output_analog)*(0xfff+1)/1.8;
   HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_12B_R, dac_output_digitized);
+  osMutexRelease(gain_mode_lock);
+}
+
+int afe_get_gain_mode() {
+  uint8_t mode;
+  osMutexWait(gain_mode_lock, osWaitForever);
+  mode = gain_mode;
+  osMutexRelease(gain_mode_lock);
+  return gain_mode;
 }
 
 void afe_set_offset() {
@@ -809,6 +825,8 @@ void DMA2_Channel2_IRQHandler(void)
     afe_sampling_pause();
     // NOTE: Indicate the send data thread to transmit the sampled data.
     osSignalSet(send_data_task, DATA_TRANS_SIG);
+    // Release the gain mode lock to enable it to be sat.
+    osMutexRelease(gain_mode_lock);
   }
   HAL_DMA_IRQHandler(&hdma_adc5);
 }
