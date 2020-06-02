@@ -212,10 +212,11 @@ void setup()
 {
   Serial.begin(115200);
   Serial2.begin(115200, SERIAL_8N1, serial_RX_Pin, serial_TX_Pin);
-
+  //wifi_power_t power;
   Serial.println("Creating AP ...");
   WiFi.softAP(ssid, password);
   penIP = WiFi.softAPIP();
+  WiFi.setTxPower(WIFI_POWER_11dBm);
   Serial.println("AP IP address: ");
   Serial.print(penIP);
 
@@ -261,7 +262,11 @@ void wifi_event_handler(WiFiEvent_t event)
       break;
     case SYSTEM_EVENT_AP_STACONNECTED:
       Serial.println("WIFI Client connected.");
-
+      break;
+    case SYSTEM_EVENT_AP_STADISCONNECTED:
+      Serial.println("WIFI Client disconnected.");
+      isConnected = false;
+      break; 
   }
   Serial.println("");
 }

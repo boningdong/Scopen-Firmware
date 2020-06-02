@@ -40,9 +40,9 @@
 #define ADC_SAMPLE_LENGTH     (sample_paras.sample_length)
 #define ADC_BUFFER_BASE       SRAM_BANK_ADDRESS
 #define ADC_BUFFER_A          ((uint32_t*)(ADC_BUFFER_BASE + HEADER_SIZE * sizeof(uint16_t)))
-#define ADC_BUFFER_B          ((uint32_t*)(ADC_BUFFER_BASE + sample_paras.sample_length * 1 * sizeof(uint16_t)))
-#define ADC_BUFFER_C          ((uint32_t*)(ADC_BUFFER_BASE + sample_paras.sample_length * 2 * sizeof(uint16_t)))
-#define ADC_BUFFER_D          ((uint32_t*)(ADC_BUFFER_BASE + sample_paras.sample_length * 3 * sizeof(uint16_t)))
+#define ADC_BUFFER_B          ((uint32_t*)(ADC_BUFFER_BASE + HEADER_SIZE * sizeof(uint16_t) + sample_paras.sample_length/4 * 1 * sizeof(uint16_t)))
+#define ADC_BUFFER_C          ((uint32_t*)(ADC_BUFFER_BASE + HEADER_SIZE * sizeof(uint16_t) + sample_paras.sample_length/4 * 2 * sizeof(uint16_t)))
+#define ADC_BUFFER_D          ((uint32_t*)(ADC_BUFFER_BASE + HEADER_SIZE * sizeof(uint16_t) + sample_paras.sample_length/4 * 3 * sizeof(uint16_t)))
 
 /**
  * @brief Global switch to control whether the sampling is enabled.
