@@ -15,7 +15,7 @@ bool send_header_wifi(const uint32_t &data_size, const uint8_t &data_type) {
   }
   clientTX.write(header, HEADER_SIZE);
 
-  return wait_for_ack_wifi(50);
+  return wait_for_ack_wifi(100);
 }
 
 /**
@@ -32,7 +32,7 @@ bool write_message_wifi(const uint8_t* msg, const uint32_t &data_length) {
     clientTX.flush();
   }
   clientTX.write(msg, data_length);
-  return wait_for_ack_wifi(50);
+  return wait_for_ack_wifi(100);
 }
 
 /**
