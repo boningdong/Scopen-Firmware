@@ -58,10 +58,8 @@ static const uint16_t MAX_SPI_BUFFER = 4096;
 static const uint32_t SPI_SPEED = 10000000;
 
 //UART buffer
-static const uint8_t MAX_UART_BUFFER = 8;
+static const uint8_t MAX_UART_BUFFER = 16;
 
-//Amount of failed ACKS to detect before disconnecting
-static const uint8_t MAX_ACK_FAILED = 5;
 
 //ClientComm functions
 bool udp_listen();
@@ -184,15 +182,12 @@ void downStreamTask(void* pvParameters) {
       if (verify_cmd_from_user(down_stream.data_type)) {
         send_ack_wifi();
         if (down_stream.data_left) {
-          if (wifi_timeout(20)) {
+          if (wifi_timeout_check_size(20,down_stream.data_left)) {
             read_message_wifi(down_stream.msg, down_stream.data_left);
             send_ack_wifi();
             send_header_stm(down_stream.data_left, down_stream.data_type);
             write_message_stm(down_stream.msg, down_stream.data_left);
           }
-        }
-        else {
-          send_header_stm(down_stream.data_left, down_stream.data_type);
         }
       }
       else {
