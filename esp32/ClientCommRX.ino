@@ -66,3 +66,14 @@ bool wifi_timeout(int timeout) {
   }
   return false;
 }
+
+bool wifi_timeout_check_size(int timeout, uint32_t dataSize) {
+  unsigned long sec = millis(); unsigned long current_time = millis();
+  while (!(clientRX.available() >= dataSize) && !((current_time - sec) > timeout)) {
+    current_time = millis();
+  }
+  if (clientRX.available() >= dataSize) {
+    return true;
+  }
+  return false;
+}
