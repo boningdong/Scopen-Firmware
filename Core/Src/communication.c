@@ -431,7 +431,9 @@ void DMA1_Channel3_IRQHandler(void)
 void DMA1_Channel4_IRQHandler(void)
 {
   if(LL_DMA_IsActiveFlag_TC4(DMA1)) {
+    #ifdef SPI_DEBUG
     printf("[DMA1] Transfer done.\r\n");
+    #endif
     // Triggers the ESP32 Interrupt
     HAL_SPI_DMAStop(&hspi3);
     // Note: Need to indicate the communication tranfer thread the transfer is done.

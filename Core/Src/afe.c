@@ -830,7 +830,9 @@ void DMA2_Channel1_IRQHandler(void)
 void DMA2_Channel2_IRQHandler(void)
 {
   if(LL_DMA_IsActiveFlag_TC2(DMA2) && !LL_DMA_IsActiveFlag_HT2(DMA2)){ //adc5
+    #ifdef ADC_DEBUG
     printf("[DMA2 Int] Sampling Done!\r\n");
+    #endif
     HAL_ADC_Stop_DMA(&hadc5);
     // Till this point, this sequence of the tranmission is done. Pause the hrtim for now, and focus on transmitting the data.
     afe_sampling_pause();

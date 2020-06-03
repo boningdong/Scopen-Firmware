@@ -157,8 +157,9 @@ void task_listen_uart() {
   uint32_t length = 0;
   for(;;) {
     status = communication_uart_receive(header_buffer, HEADER_SIZE, UART_WAIT_HEADER_TIMEOUT);
-    if (status != SUCCESS)
-      continue;
+    if (status != SUCCESS) {
+      printf("[UART LISTEN] Header timeouted.\r\n");
+    }
     printf("Uart received header\r\n");
 
     // parse header
@@ -168,7 +169,7 @@ void task_listen_uart() {
       length |= header_buffer[i] << (sizeof(uint8_t) * offset);
     }
     if (length > 5) {
-      printf("Received command with body length > 5.\r\n");
+      printf("Received command with body length > 5. Got length: %d, got type: %d\r\n", length, type);
     }
 
     type = header_buffer[HEADER_SIZE - 1];

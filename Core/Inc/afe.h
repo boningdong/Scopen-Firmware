@@ -14,6 +14,8 @@
 
 #include "main.h"
 
+// #define ADC_DEBUG
+
 typedef struct {
   uint8_t speed_option;
   uint32_t sample_length;
