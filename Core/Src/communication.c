@@ -105,64 +105,64 @@ ErrorStatus communication_wait_ack(uint8_t* buffer){
  * @param buffer  Payload of the message. Can be address from SRAM or from any buffer.
  * @param length  Payload transfer length. Here the length is not bytes. But how many data elements.
  */
-void communication_transfer_message(uint8_t type, uint8_t* buffer, uint32_t length) {
-  // REVIEW: May need to change this function to return a boolean status.
-  ErrorStatus status;
-  uint8_t ack = 0;
-  // Make the header of the communication.
-  // Need to use uint16 because the DMA will read 16 bits each time.
-  uint16_t header[HEADER_SIZE];
-  _make_header16(header, type, length);
+// void communication_transfer_message(uint8_t type, uint8_t* buffer, uint32_t length) {
+//   // REVIEW: May need to change this function to return a boolean status.
+//   ErrorStatus status;
+//   uint8_t ack = 0;
+//   // Make the header of the communication.
+//   // Need to use uint16 because the DMA will read 16 bits each time.
+//   uint16_t header[HEADER_SIZE];
+//   _make_header16(header, type, length);
 
-  osSemaphoreWait(sem_transfer_occupied, osWaitForever);
-  // Transfer the header of the data.
-  communication_transmit((uint8_t*)header, HEADER_SIZE * SPI_DMA_MEMWIDTH);
-  // Wait to make sure the tranmission is done before waiting for the acknowledgement. Or it may fuck up the data.
-  osSemaphoreWait(sem_transfer_done, osWaitForever);
-  // Wait for the acknowledgement.
-  // Note: Need to make sure the tranmit is done. Or it will fuck up the data.
-  //status = communication_receive_block(&ack, 1, SPI_WAIT_ACK_TIMEOUT);
-  status = communication_wait_ack(&ack);
-  if (status != SUCCESS) {
-    // Release the shared resources and stop.
-    printf("Didn't received valid header ACK\r\n");
-    osSemaphoreRelease(sem_transfer_occupied);
-    return;
-  }
+//   osSemaphoreWait(sem_transfer_occupied, osWaitForever);
+//   // Transfer the header of the data.
+//   communication_transmit((uint8_t*)header, HEADER_SIZE * SPI_DMA_MEMWIDTH);
+//   // Wait to make sure the tranmission is done before waiting for the acknowledgement. Or it may fuck up the data.
+//   osSemaphoreWait(sem_transfer_done, osWaitForever);
+//   // Wait for the acknowledgement.
+//   // Note: Need to make sure the tranmit is done. Or it will fuck up the data.
+//   //status = communication_receive_block(&ack, 1, SPI_WAIT_ACK_TIMEOUT);
+//   status = communication_wait_ack(&ack);
+//   if (status != SUCCESS) {
+//     // Release the shared resources and stop.
+//     printf("Didn't received valid header ACK\r\n");
+//     osSemaphoreRelease(sem_transfer_occupied);
+//     return;
+//   }
   
-  // Transfer the data.
-  // while (length) {
-  //   // Transfer the body
-  //   uint16_t transfer_size = (length <= MAX_SPI_BUFFER_SIZE) ? length : MAX_SPI_BUFFER_SIZE;
-  //   communication_transmit(buffer, transfer_size * SPI_DMA_MEMWIDTH);
-  //   // Wait for the acknowledgement;
-  //   // NOTE: Need to make sure the tranmit is done. Or it will fuck up the data.
-  //   osSemaphoreWait(sem_transfer_done, osWaitForever);
-  //   status = communication_wait_ack(&ack);
-  //   if (status != SUCCESS) {
-  //     // Release the shared resources and stop.
-  //     printf("Didn't received valid body ACK\r\n");
-  //     osSemaphoreRelease(sem_transfer_occupied);
-  //     return;
-  //   }
-  //   length -= transfer_size;
-  //   buffer += transfer_size * SPI_DMA_MEMWIDTH;
-  //   printf("Done one round of transfer. Send left: %d\r\n", length);
-  // }
-  communication_transmit(buffer, length * SPI_DMA_MEMWIDTH);
-  osSemaphoreWait(sem_transfer_done, osWaitForever);
-  status = communication_wait_ack(&ack);
-  if (status != SUCCESS) {
-    // Release the shared resources and stop.
-    printf("Didn't received valid body ACK.\r\n");
-    osSemaphoreRelease(sem_transfer_occupied);
-    return;
-  }
+//   // Transfer the data.
+//   // while (length) {
+//   //   // Transfer the body
+//   //   uint16_t transfer_size = (length <= MAX_SPI_BUFFER_SIZE) ? length : MAX_SPI_BUFFER_SIZE;
+//   //   communication_transmit(buffer, transfer_size * SPI_DMA_MEMWIDTH);
+//   //   // Wait for the acknowledgement;
+//   //   // NOTE: Need to make sure the tranmit is done. Or it will fuck up the data.
+//   //   osSemaphoreWait(sem_transfer_done, osWaitForever);
+//   //   status = communication_wait_ack(&ack);
+//   //   if (status != SUCCESS) {
+//   //     // Release the shared resources and stop.
+//   //     printf("Didn't received valid body ACK\r\n");
+//   //     osSemaphoreRelease(sem_transfer_occupied);
+//   //     return;
+//   //   }
+//   //   length -= transfer_size;
+//   //   buffer += transfer_size * SPI_DMA_MEMWIDTH;
+//   //   printf("Done one round of transfer. Send left: %d\r\n", length);
+//   // }
+//   communication_transmit(buffer, length * SPI_DMA_MEMWIDTH);
+//   osSemaphoreWait(sem_transfer_done, osWaitForever);
+//   status = communication_wait_ack(&ack);
+//   if (status != SUCCESS) {
+//     // Release the shared resources and stop.
+//     printf("Didn't received valid body ACK.\r\n");
+//     osSemaphoreRelease(sem_transfer_occupied);
+//     return;
+//   }
   
-  // Release the shared resources and stop.
-  printf("Transfer succeed.\r\n");
-  osSemaphoreRelease(sem_transfer_occupied);
-}
+//   // Release the shared resources and stop.
+//   printf("Transfer succeed.\r\n");
+//   osSemaphoreRelease(sem_transfer_occupied);
+// }
 
 /**
  * @brief This function will tranmit the data, which includes the header and body in the same chunk.
@@ -176,12 +176,14 @@ void communication_transfer_message_in_chunk(uint16_t* buffer, uint32_t length) 
   ErrorStatus status;
   osSemaphoreWait(sem_transfer_occupied, osWaitForever);
   communication_transmit((uint8_t*)buffer, length * SPI_DMA_MEMWIDTH);
+  printf("[SPI TRANS] Waiting for the transfer complete.\r\n");
   osSemaphoreWait(sem_transfer_done, osWaitForever);
+  
   status = communication_wait_ack(&ack);
   if (status != SUCCESS) {
-    printf("Didn't receive valid body ACK.\r\n");
+    printf("[SPI TRANS] Didn't receive valid body ACK. Unlocking.\r\n\r\n");
   } else
-    printf("SPI Transfering succeed.\r\n\r\n");
+    printf("[SPI TRANS] SPI Transfering succeed. Unlocking.\r\n\r\n");
   osSemaphoreRelease(sem_transfer_occupied);
 }
 
