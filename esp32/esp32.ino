@@ -188,6 +188,12 @@ void downStreamTask(void* pvParameters) {
             send_header_stm(down_stream.data_left, down_stream.data_type);
             write_message_stm(down_stream.msg, down_stream.data_left);
           }
+          else{
+            send_ack_wifi();
+            if(clientRX.available() > 0){
+              clientRX.flush();
+            }
+          }
         }
       }
       else {
