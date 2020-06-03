@@ -32,7 +32,7 @@ osThreadId event_handle_task;
 void tasks_initialization() {
   osThreadDef(SendCmd, task_send_command, osPriorityNormal, 0, 96);
   osThreadDef(SendData, task_send_data, osPriorityHigh, 0, 96);
-  osThreadDef(ExecCmd, task_exec_command, osPriorityNormal, 0, 128);
+  osThreadDef(ExecCmd, task_exec_command, osPriorityAboveNormal, 0, 128);
   osThreadDef(WaitUart, task_listen_uart, osPriorityNormal, 0, 64);
   osThreadDef(EventHandle, task_handle_event, osPriorityNormal, 0, 64);
   send_cmd_task = osThreadCreate(osThread(SendCmd), NULL);

@@ -571,6 +571,10 @@ void afe_adc_hrtim_initialize(void)
  * Sampling length will be configured inside this function.
  */
 void afe_sampling_trigger() {
+  if (!afe_is_sampling_paused()) {
+    printf("[SAMPLE TRIGGER] Trying to trugger while the sampling is still running.");
+    return;
+  }
   // Lock the sampling parameters first.
   osSemaphoreWait(sem_sample_paras, osWaitForever);
   //calibrates all ADCs and starts them in DMA mode
@@ -828,6 +832,7 @@ void DMA2_Channel2_IRQHandler(void)
     // Till this point, this sequence of the tranmission is done. Pause the hrtim for now, and focus on transmitting the data.
     afe_sampling_pause();
     // NOTE: Indicate the send data thread to transmit the sampled data.
+    printf("Sampling done interrupt.\r\n");
     osSignalSet(send_data_task, DATA_TRANS_SIG);
     // Release the gain mode lock to enable it to be sat.
     // osSemaphoreRelease(gain_mode_lock);

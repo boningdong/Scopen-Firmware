@@ -207,10 +207,13 @@ void command_construct(command_t* cmd) {
 static void _start_sample_handle(command_t* cmd) {
   if (afe_is_sampling_enabled())
     return;
+
   // Enable the sampling first to turn the global switch on.
   afe_sampling_enable();
   // Then trigger the first sampling.
-  afe_sampling_trigger();
+  // Make sure the afe sampling timer is paused first.
+  if (afe_is_sampling_paused())
+    afe_sampling_trigger();
 }
 
 /**
