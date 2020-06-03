@@ -18,6 +18,8 @@
 #include <stdio.h>
 
 
+
+
 // Static function declarations
 static void _start_sample_handle(command_t* cmd);
 static void _stop_sample_handle(command_t* cmd);
@@ -246,6 +248,7 @@ static void _check_bat_handle(command_t* cmd) {
  * @param cmd Pointer to the command_t object.
  */
 static void _set_volt_handle(command_t* cmd) {
+  printf("Setting voltage.\r\n");
   if (afe_get_gain_mode() != cmd->argv[0])
     afe_set_gain(cmd->argv[0]);
 }

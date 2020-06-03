@@ -734,8 +734,9 @@ void afe_set_gain(uint8_t mode) {
   uint32_t dac_output_digitized;
   float pkpk = 1.8;
   float attenuated; 
-
+  printf("[AFE SET GAIN] Locking...\r\n");
   osSemaphoreWait(gain_mode_lock, osWaitForever);
+  printf("[AFE SET GAIN] Setting...\r\n");
   if(mode < 4){
     afe_relay_control(1);
   }
@@ -785,6 +786,7 @@ void afe_set_gain(uint8_t mode) {
   dac_output_digitized = (dac_output_analog)*(0xfff+1)/1.8;
   HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_12B_R, dac_output_digitized);
   osSemaphoreRelease(gain_mode_lock);
+  printf("[AFE SET GAIN] Unlocked.\r\n");
 }
 
 int afe_get_gain_mode() {
@@ -828,11 +830,10 @@ void DMA2_Channel1_IRQHandler(void)
 void DMA2_Channel2_IRQHandler(void)
 {
   if(LL_DMA_IsActiveFlag_TC2(DMA2) && !LL_DMA_IsActiveFlag_HT2(DMA2)){ //adc5
+    printf("[DMA2 Int] Sampling Done!\r\n");
     HAL_ADC_Stop_DMA(&hadc5);
     // Till this point, this sequence of the tranmission is done. Pause the hrtim for now, and focus on transmitting the data.
     afe_sampling_pause();
-    // NOTE: Indicate the send data thread to transmit the sampled data.
-    printf("Sampling done interrupt.\r\n");
     osSignalSet(send_data_task, DATA_TRANS_SIG);
     // Release the gain mode lock to enable it to be sat.
     // osSemaphoreRelease(gain_mode_lock);

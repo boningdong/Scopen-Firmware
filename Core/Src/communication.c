@@ -86,7 +86,7 @@ ErrorStatus communication_receive_block(uint8_t* buffer, uint16_t count, uint32_
  * @return ErrorStatus  Return ErrorStatus code. For example, if succeed, you can see SUCCESS.
  */
 ErrorStatus communication_wait_ack(uint8_t* buffer){
-  uint8_t timer = 20;
+  uint8_t timer = 10;
   uint8_t tries = timer;
   *buffer = 0;
   while(timer){
@@ -176,14 +176,19 @@ void communication_transfer_message_in_chunk(uint16_t* buffer, uint32_t length) 
   ErrorStatus status;
   osSemaphoreWait(sem_transfer_occupied, osWaitForever);
   communication_transmit((uint8_t*)buffer, length * SPI_DMA_MEMWIDTH);
+  #ifdef SPI_DEBUG
   printf("[SPI TRANS] Waiting for the transfer complete.\r\n");
+  #endif
   osSemaphoreWait(sem_transfer_done, osWaitForever);
   
   status = communication_wait_ack(&ack);
+  #ifdef SPI_DEBUG
   if (status != SUCCESS) {
     printf("[SPI TRANS] Didn't receive valid body ACK. Unlocking.\r\n\r\n");
-  } else
+  } else {
     printf("[SPI TRANS] SPI Transfering succeed. Unlocking.\r\n\r\n");
+  }
+  #endif
   osSemaphoreRelease(sem_transfer_occupied);
 }
 
@@ -426,6 +431,7 @@ void DMA1_Channel3_IRQHandler(void)
 void DMA1_Channel4_IRQHandler(void)
 {
   if(LL_DMA_IsActiveFlag_TC4(DMA1)) {
+    printf("[DMA1] Transfer done.\r\n");
     // Triggers the ESP32 Interrupt
     HAL_SPI_DMAStop(&hspi3);
     // Note: Need to indicate the communication tranfer thread the transfer is done.

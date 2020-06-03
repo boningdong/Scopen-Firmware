@@ -31,8 +31,8 @@ osThreadId event_handle_task;
 
 void tasks_initialization() {
   osThreadDef(SendCmd, task_send_command, osPriorityNormal, 0, 96);
-  osThreadDef(SendData, task_send_data, osPriorityHigh, 0, 96);
-  osThreadDef(ExecCmd, task_exec_command, osPriorityAboveNormal, 0, 128);
+  osThreadDef(SendData, task_send_data, osPriorityNormal, 0, 96);
+  osThreadDef(ExecCmd, task_exec_command, osPriorityNormal, 0, 128);
   osThreadDef(WaitUart, task_listen_uart, osPriorityNormal, 0, 64);
   osThreadDef(EventHandle, task_handle_event, osPriorityNormal, 0, 64);
   send_cmd_task = osThreadCreate(osThread(SendCmd), NULL);
@@ -89,7 +89,9 @@ void task_send_data() {
     // The ADC sampling is paused inside the DMA function.
     // And the DMA function will send the following signal.
     osSignalWait(DATA_TRANS_SIG, osWaitForever);
+    #ifdef SPI_DEBUG
     printf("Sending data to PC.\r\n");
+    #endif
 
     // REVIEW: Old protocol
     // // NOTE: Because the data is saved in the external SRAM here. So we use the SRAM memory address.

@@ -27,6 +27,8 @@
 #define UART_WAIT_BODY_TIMEOUT 1000
 #define UART_SEND_ACK_TIMEOUT 1000
 
+// #define SPI_DEBUG
+
 typedef struct {
   uint8_t header_sent;
   uint8_t header_ack;
@@ -38,6 +40,7 @@ typedef struct {
 } transfer_status_t;
 
 extern osSemaphoreId sem_transfer_done;
+
 
 
 void communication_initialization();
