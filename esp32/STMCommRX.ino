@@ -37,9 +37,10 @@ void read_message_stm(uint8_t* msg, const uint32_t &spi_data_length){
   spi.beginTransaction(SPISettings(SPI_SPEED,MSBFIRST,SPI_MODE0));
   
   digitalWrite(SS_PIN,LOW);
-  spi.transfer(msg,spi_data_length);
+  unsigned long del = millis();
+  spi.transferBytes(NULL,msg,spi_data_length);
   digitalWrite(SS_PIN,HIGH);
-
+  Serial.print("Time: "); Serial.println(millis()-del);
   spi.endTransaction();
 }
 

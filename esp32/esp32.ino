@@ -55,7 +55,7 @@ char scan_send_msg[1024] = "";
 
 //SPI settings
 static const uint16_t MAX_SPI_BUFFER = 4096;
-static const uint16_t SPI_SPEED = 10000000;
+static const uint32_t SPI_SPEED = 10000000;
 
 //UART buffer
 static const uint8_t MAX_UART_BUFFER = 8;
@@ -241,7 +241,6 @@ void loop()
 {
   if(!isConnected && !udpOn ){
     udp.begin(SCAN_LISTEN_PORT);
-    Serial.println("UDP ENABLED");
     udpOn = true;
   }
   if (!isConnected && udp_listen()) {
@@ -250,7 +249,6 @@ void loop()
   }
   if (!isConnected && check_tcp_client()) {
     udp.stop();
-    Serial.println("UDP DISABLED");
     udpOn = false;
     Serial.println("Connected");
     isConnected = true;
