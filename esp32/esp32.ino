@@ -197,6 +197,7 @@ void downStreamTask(void* pvParameters) {
       }
       else {
         Serial.println("Wrong header dataType recieved from WIFI");
+        send_ack_wifi();
       }
     }
   }
