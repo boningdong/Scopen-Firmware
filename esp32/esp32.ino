@@ -121,6 +121,7 @@ TaskHandle_t downStream_handle;
 
 bool downStream = false;
 bool isConnected = false;
+bool udpOn = false;
 uint8_t ack_failed_count = 0;
 uint8_t interrupt_flag = 0;
 
@@ -203,7 +204,6 @@ void downStreamTask(void* pvParameters) {
   Serial.println("TCP Client disconnected");
   isConnected = false;
   downStream = false;
-  udp.begin(SCAN_LISTEN_PORT);
   vTaskDelete(downStream_handle);
 }
 
@@ -216,7 +216,7 @@ void setup()
   Serial.println("Creating AP ...");
   WiFi.softAP(ssid, password);
   penIP = WiFi.softAPIP();
-  // WiFi.setTxPower(WIFI_POWER_11dBm);
+  WiFi.setTxPower(WIFI_POWER_11dBm);
   Serial.println("AP IP address: ");
   Serial.print(penIP);
 
@@ -229,6 +229,8 @@ void setup()
   WiFi.onEvent(wifi_event_handler);
   xTaskCreate(upStreamTask, "downStream", 10000, NULL, 2, NULL);
   udp.begin(SCAN_LISTEN_PORT);
+  Serial.println("UDP ENABLED");
+  udpOn = true;
   tcp_start();
   delay(500);
 }
@@ -237,12 +239,19 @@ void setup()
 
 void loop()
 {
+  if(!isConnected && !udpOn ){
+    udp.begin(SCAN_LISTEN_PORT);
+    Serial.println("UDP ENABLED");
+    udpOn = true;
+  }
   if (!isConnected && udp_listen()) {
     Serial.println("Recieved Scopen message");
     delay(10);
   }
   if (!isConnected && check_tcp_client()) {
     udp.stop();
+    Serial.println("UDP DISABLED");
+    udpOn = false;
     Serial.println("Connected");
     isConnected = true;
     if (downStream)
