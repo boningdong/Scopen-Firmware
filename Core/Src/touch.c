@@ -13,7 +13,7 @@
 
 event_flags_t events = {0};
 trackpad_flags_t gestures = {0};
-
+TIM_HandleTypeDef htim5;
 /**
  * @brief Initialize and configure the touch sensor on this board.
  * 
@@ -56,7 +56,72 @@ void touch_init() {
   // Delay 100ms to make sure the system is ready.
   printf("Done Initializing the touch sensor.\n");
   HAL_Delay(100);
+  touch_init_timer();
+  start_debounce_timer();
   iqs266_init_ready_interrupt();
+}
+
+void touch_init_timer(){
+  __HAL_RCC_TIM5_CLK_ENABLE();
+    TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  htim5.Instance = TIM5;
+  htim5.Init.Prescaler = TIM_CLOCKPRESCALER_DIV2;
+  htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim5.Init.Period = (uint32_t)100000;
+  htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim5, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_OC_Init(&htim5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim5, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_TIMING;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_OC_ConfigChannel(&htim5, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+    HAL_NVIC_SetPriority(TIM5_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(TIM5_IRQn);
+}
+
+void stop_debounce_timer(){
+  HAL_TIM_Base_Stop_IT(&htim5);
+}
+
+void start_debounce_timer(){
+  HAL_TIM_Base_Start_IT(&htim5);
+}
+
+
+void TIM5_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM5_IRQn 0 */
+
+  /* USER CODE END TIM5_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim5);
+  /* USER CODE BEGIN TIM5_IRQn 1 */
+  stop_debounce_timer();
+  /* USER CODE END TIM5_IRQn 1 */
 }
 
 /**
