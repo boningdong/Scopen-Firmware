@@ -5,24 +5,27 @@
    @param spi_data_type Reference to data type
 */
 void read_header_stm(uint32_t &spi_data_size, uint8_t &spi_data_type){
-    uint8_t header[HEADER_SIZE];
-    
-    spi.beginTransaction(SPISettings(SPI_SPEED,MSBFIRST,SPI_MODE0));
-    
-    digitalWrite(SS_PIN,LOW);
-    spi.transferBytes(NULL,header,HEADER_SIZE);
-    digitalWrite(SS_PIN,HIGH);
-    
-    spi.endTransaction();
-    
-    Serial.println(" ");
-    Serial.print("SPI Header: ");
-    for(int i = 0; i<5;i++){
-       Serial.print(header[i]);Serial.print(" ");
-    }
-     Serial.println("");
-    parseBigEndian(header, spi_data_size);
-    spi_data_type = header[HEADER_SIZE-1];
+   uint8_t header[HEADER_SIZE];
+   
+   spi.beginTransaction(SPISettings(SPI_SPEED,MSBFIRST,SPI_MODE0));
+   
+   digitalWrite(SS_PIN,LOW);
+   spi.transferBytes(NULL,header,HEADER_SIZE);
+   digitalWrite(SS_PIN,HIGH);
+   
+   spi.endTransaction();
+   
+   Serial.println(" ");
+   #ifdef SPI_DEBUG
+   Serial.print("SPI Header: ");
+   
+   for(int i = 0; i<5;i++){
+      Serial.print(header[i]);Serial.print(" ");
+   }
+   Serial.println("");
+   #endif
+   parseBigEndian(header, spi_data_size);
+   spi_data_type = header[HEADER_SIZE-1];
 //    Serial.print("Data size: "); Serial.println(spi_data_size);
 //    Serial.print("Data type: "); Serial.println(spi_data_type);
 }
@@ -40,7 +43,9 @@ void read_message_stm(uint8_t* msg, const uint32_t &spi_data_length){
   unsigned long del = millis();
   spi.transferBytes(NULL,msg,spi_data_length);
   digitalWrite(SS_PIN,HIGH);
+  #ifdef SPI_DEBUG
   Serial.print("Time: "); Serial.println(millis()-del);
+  #endif
   spi.endTransaction();
 }
 
@@ -56,7 +61,9 @@ void send_ack_stm(){
   digitalWrite(SS_PIN,HIGH);
   
   spi.endTransaction();
+  #ifdef SPI_DEBUG
   Serial.println("Sent ACK to STM");
+  #endif
 }
 
 /**

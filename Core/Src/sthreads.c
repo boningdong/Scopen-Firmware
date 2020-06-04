@@ -159,11 +159,13 @@ void task_listen_uart() {
     status = communication_uart_receive(header_buffer, HEADER_SIZE, UART_WAIT_HEADER_TIMEOUT);
     if (status != SUCCESS) {
       printf("[UART LISTEN] Header timeouted.\r\n");
+      continue;
     }
     printf("Uart received header\r\n");
 
     // parse header
     length = 0;
+    type = header_buffer[HEADER_SIZE - 1];
     for (int i = 0; i < HEADER_SIZE_FIELD; i++) {
       uint8_t offset = HEADER_SIZE_FIELD - i - 1;
       length |= header_buffer[i] << (sizeof(uint8_t) * offset);
@@ -172,7 +174,7 @@ void task_listen_uart() {
       printf("Received command with body length > 5. Got length: %d, got type: %d\r\n", length, type);
     }
 
-    type = header_buffer[HEADER_SIZE - 1];
+
     // Check the validity of the type. If it's not validate, go back to wait for the header again.
     if (!command_validate(type)) {
       printf("Uart received invalid header type.\r\n");

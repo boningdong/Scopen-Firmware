@@ -44,13 +44,13 @@ void touch_init() {
   // Set touch parameters
   iqs266_set_touch_base_value(3, true);
   iqs266_set_touch_ati_target(35, true);
-  iqs266_set_touch_sensitivity(ALL, 45, true);
+  iqs266_set_touch_sensitivity(ALL, 25, true);
   // Set tap parameters.
   iqs266_set_tap_timeout(75, true);
   iqs266_set_tap_threshold(35, true);
   // Set swipe parameters
   iqs266_set_swipe_timeout(150, true);
-  iqs266_set_swipe_threshold(30, true);
+  iqs266_set_swipe_threshold(40, true);
   // Set autotune.
   iqs266_auto_tune(false);
   // Delay 100ms to make sure the system is ready.

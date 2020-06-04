@@ -9,6 +9,8 @@
 #include <stdint.h>
 #include <SPI.h>
 
+// #define SPI_DEBUG
+
 //SPI Pins
 static const int MISO_PIN = 13;
 static const int MOSI_PIN = 12;
@@ -142,15 +144,19 @@ void upStreamTask(void* pvParameters) {
         else{
           isConnected = false;
         }
+        #ifdef SPI_DEBUG
         Serial.println("Reading and sending in chunks");
+        #endif
         while (incoming.data_left > 0) {
           uint32_t readLength = incoming.data_left > MAX_SPI_BUFFER ? MAX_SPI_BUFFER : incoming.data_left;
+          #ifdef SPI_DEBUG
           Serial.print("Data left: ");
           Serial.print(incoming.data_left);
           Serial.println("");
           Serial.print("Read Length: ");
           Serial.print(readLength);
           Serial.println("\n");
+          #endif
           read_message_stm(incoming.msg, readLength);
           if (isConnected && clientTX.connected()){
             write_message_wifi(incoming.msg, readLength);
