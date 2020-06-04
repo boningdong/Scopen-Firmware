@@ -41,7 +41,7 @@ void system_init_interfaces() {
   // REVIEW: Here I was trying to do the charge trigger. Falling and rising mode.
   // CHG_PIN Should be PE2
   __HAL_RCC_GPIOE_CLK_ENABLE();
-  gpio_init_struct.Mode = GPIO_MODE_INPUT;
+  gpio_init_struct.Mode = GPIO_MODE_IT_RISING_FALLING ;
   gpio_init_struct.Pin = POWER_CHG_PIN;
   gpio_init_struct.Pull = GPIO_PULLUP;
   gpio_init_struct.Speed = GPIO_SPEED_HIGH;
@@ -49,12 +49,12 @@ void system_init_interfaces() {
 
 
   // Enable the power charging pin.
-  LL_EXTI_InitTypeDef exti_config = {0};
-  exti_config.Line_0_31 = LL_EXTI_LINE_2;
-  exti_config.LineCommand = ENABLE;
-  exti_config.Mode = LL_EXTI_MODE_IT;
-  exti_config.Trigger = LL_EXTI_TRIGGER_RISING_FALLING;
-  LL_EXTI_Init(&exti_config);
+  // LL_EXTI_InitTypeDef exti_config = {0};
+  // exti_config.Line_0_31 = LL_EXTI_LINE_2;
+  // exti_config.LineCommand = ENABLE;
+  // exti_config.Mode = LL_EXTI_MODE_IT;
+  // exti_config.Trigger = LL_EXTI_TRIGGER_RISING_FALLING;
+  // LL_EXTI_Init(&exti_config);
 
   HAL_NVIC_SetPriority(EXTI2_IRQn, 8, 8);
   HAL_NVIC_EnableIRQ(EXTI2_IRQn);
