@@ -8,16 +8,16 @@ bool udp_listen() {
   char package_buffer[256];
   if (packsize != 0) {
     String msg = udp.readString();
-    Serial.println(msg);
+//    Serial.println(msg);
     if (msg == SCAN_MESSAGE) {
       userIP = udp.remoteIP();
-      Serial.print("User ip: ");
-      Serial.println(userIP);
+//      Serial.print("User ip: ");
+//      Serial.println(userIP);
       String temp = "<105|1|105|" + penIP.toString() + '|' + TCP_PORT_RX + '|' + TCP_PORT_TX + '>';
       temp.toCharArray(scan_send_msg, 1024);
       udp.beginPacket(userIP, SCAN_REPLY_PORT);
       udp.write((uint8_t*)scan_send_msg, 1024);
-      Serial.println(scan_send_msg);
+//      Serial.println(scan_send_msg);
       udp.endPacket();
       return true;
     }
@@ -31,7 +31,7 @@ bool udp_listen() {
 void tcp_start() {
   serverRX.begin(TCP_PORT_RX);
   serverTX.begin(TCP_PORT_TX);
-  Serial.println("TCP Sockets enabled");
+//  Serial.println("TCP Sockets enabled");
 }
 
 /**
@@ -40,7 +40,7 @@ void tcp_start() {
 void tcp_stop() {
   clientRX.stop();
   clientTX.stop();
-  Serial.println("TCP Socket stopped");
+//  Serial.println("TCP Socket stopped");
   serverRX.close();
   serverTX.close();
 }

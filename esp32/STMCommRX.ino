@@ -15,14 +15,14 @@ void read_header_stm(uint32_t &spi_data_size, uint8_t &spi_data_type){
    
    spi.endTransaction();
    
-   Serial.println(" ");
+//   Serial.println(" ");
    #ifdef SPI_DEBUG
-   Serial.print("SPI Header: ");
-   
-   for(int i = 0; i<5;i++){
-      Serial.print(header[i]);Serial.print(" ");
-   }
-   Serial.println("");
+//   Serial.print("SPI Header: ");
+//   
+//   for(int i = 0; i<5;i++){
+//      Serial.print(header[i]);Serial.print(" ");
+//   }
+//   Serial.println("");
    #endif
    parseBigEndian(header, spi_data_size);
    spi_data_type = header[HEADER_SIZE-1];
@@ -44,7 +44,7 @@ void read_message_stm(uint8_t* msg, const uint32_t &spi_data_length){
   spi.transferBytes(NULL,msg,spi_data_length);
   digitalWrite(SS_PIN,HIGH);
   #ifdef SPI_DEBUG
-  Serial.print("Time: "); Serial.println(millis()-del);
+//  Serial.print("Time: "); Serial.println(millis()-del);
   #endif
   spi.endTransaction();
 }
@@ -62,7 +62,7 @@ void send_ack_stm(){
   
   spi.endTransaction();
   #ifdef SPI_DEBUG
-  Serial.println("Sent ACK to STM");
+//  Serial.println("Sent ACK to STM");
   #endif
 }
 

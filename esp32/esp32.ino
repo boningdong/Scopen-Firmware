@@ -145,17 +145,17 @@ void upStreamTask(void* pvParameters) {
           isConnected = false;
         }
         #ifdef SPI_DEBUG
-        Serial.println("Reading and sending in chunks");
+//        Serial.println("Reading and sending in chunks");
         #endif
         while (incoming.data_left > 0) {
           uint32_t readLength = incoming.data_left > MAX_SPI_BUFFER ? MAX_SPI_BUFFER : incoming.data_left;
           #ifdef SPI_DEBUG
-          Serial.print("Data left: ");
-          Serial.print(incoming.data_left);
-          Serial.println("");
-          Serial.print("Read Length: ");
-          Serial.print(readLength);
-          Serial.println("\n");
+//          Serial.print("Data left: ");
+//          Serial.print(incoming.data_left);
+//          Serial.println("");
+//          Serial.print("Read Length: ");
+//          Serial.print(readLength);
+//          Serial.println("\n");
           #endif
           read_message_stm(incoming.msg, readLength);
           if (isConnected && clientTX.connected()){
@@ -172,7 +172,7 @@ void upStreamTask(void* pvParameters) {
         incoming.data_left = 0;
       }
       else {
-        Serial.println("Wrong header datatype sent from SPI");
+//        Serial.println("Wrong header datatype sent from SPI");
         incoming.data_left = 0;
       }
     }
@@ -209,7 +209,7 @@ void downStreamTask(void* pvParameters) {
     }
   }
 
-  Serial.println("TCP Client disconnected");
+//  Serial.println("TCP Client disconnected");
   isConnected = false;
   downStream = false;
   vTaskDelete(downStream_handle);
@@ -221,12 +221,12 @@ void setup()
   Serial.begin(115200);
   Serial2.begin(115200, SERIAL_8N1, serial_RX_Pin, serial_TX_Pin);
   //wifi_power_t power;
-  Serial.println("Creating AP ...");
+//  Serial.println("Creating AP ...");
   WiFi.softAP(ssid, password);
   penIP = WiFi.softAPIP();
   WiFi.setTxPower(WIFI_POWER_11dBm);
-  Serial.println("AP IP address: ");
-  Serial.print(penIP);
+//  Serial.println("AP IP address: ");
+//  Serial.print(penIP);
 
   pinMode(SS_PIN, OUTPUT);
   digitalWrite(SS_PIN, HIGH);
@@ -237,7 +237,7 @@ void setup()
   WiFi.onEvent(wifi_event_handler);
   xTaskCreate(upStreamTask, "downStream", 10000, NULL, 2, NULL);
   udp.begin(SCAN_LISTEN_PORT);
-  Serial.println("UDP ENABLED");
+//  Serial.println("UDP ENABLED");
   udpOn = true;
   tcp_start();
   delay(500);
@@ -252,13 +252,13 @@ void loop()
     udpOn = true;
   }
   if (!isConnected && udp_listen()) {
-    Serial.println("Recieved Scopen message");
+//    Serial.println("Recieved Scopen message");
     delay(10);
   }
   if (!isConnected && check_tcp_client()) {
     udp.stop();
     udpOn = false;
-    Serial.println("Connected");
+//    Serial.println("Connected");
     isConnected = true;
     if (downStream)
       vTaskDelete(downStream_handle);
@@ -269,19 +269,19 @@ void loop()
 
 void wifi_event_handler(WiFiEvent_t event)
 {
-  Serial.println("[WiFi Event]");
+//  Serial.println("[WiFi Event]");
   switch (event)
   {
     case SYSTEM_EVENT_AP_START:
-      Serial.println("WiFi access point started.");
+//      Serial.println("WiFi access point started.");
       break;
     case SYSTEM_EVENT_AP_STACONNECTED:
-      Serial.println("WIFI Client connected.");
+//      Serial.println("WIFI Client connected.");
       break;
     case SYSTEM_EVENT_AP_STADISCONNECTED:
-      Serial.println("WIFI Client disconnected.");
+//      Serial.println("WIFI Client disconnected.");
       isConnected = false;
       break; 
   }
-  Serial.println("");
+//  Serial.println("");
 }

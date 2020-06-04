@@ -9,7 +9,7 @@
 bool send_header_stm(const uint32_t &data_size, const uint8_t &data_type){
   uint8_t header[HEADER_SIZE];
   constructHeader(header,data_size,data_type);
-  Serial.println("Sending header to STM");
+//  Serial.println("Sending header to STM");
   Serial2.write(header,HEADER_SIZE);
   Serial2.flush();
   return wait_for_ack_stm(50);
@@ -24,14 +24,14 @@ bool send_header_stm(const uint32_t &data_size, const uint8_t &data_type){
    @param data_length Amount of data being sent in the body
 */
 bool write_message_stm(const uint8_t* msg, const uint32_t &data_length){
-  Serial.print("Sending message to STM: ");
-  Serial.println(Serial2.write(msg, data_length));
-  Serial.print("Message to STM: ");
-  for(int i =0;i<data_length;i++){
-    Serial.print(msg[i]);
-    Serial.print(" ");
-  }
-  Serial.println("");
+//  Serial.print("Sending message to STM: ");
+Serial2.write(msg, data_length);
+//  Serial.print("Message to STM: ");
+//  for(int i =0;i<data_length;i++){
+//    Serial.print(msg[i]);
+//    Serial.print(" ");
+//  }
+//  Serial.println("");
   Serial2.flush();
   return wait_for_ack_stm(50);
 }
@@ -49,15 +49,15 @@ bool wait_for_ack_stm(int timeout){
     current_time = millis();
   }
   if(current_time-sec>timeout){
-    Serial.println("UART ACK timed out\n");
+//    Serial.println("UART ACK timed out\n");
     return false;
   }
   if(Serial2.read() == (int) 'A'){
-    Serial.println("Recieved ACK UART\n");
+//    Serial.println("Recieved ACK UART\n");
     return true;
   }
   else{
-    Serial.println("Wrong ACK recieved from UART\n");
+//    Serial.println("Wrong ACK recieved from UART\n");
     return false;
   }
 }

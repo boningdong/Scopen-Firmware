@@ -51,14 +51,14 @@ bool wait_for_ack_wifi(int timeout) {
   }
   
   if ((current_time - sec) >= timeout) {
-    Serial.println("WIFI ACK timed out");
+//    Serial.println("WIFI ACK timed out");
     return false;
   }
   if (clientTX.read() == (int)'A') {
       return true;
     }
   else {
-      Serial.println("Wrong ACK recieved WIFI");
+//      Serial.println("Wrong ACK recieved WIFI");
   }
   return false;
 }
