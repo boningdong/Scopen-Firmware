@@ -271,7 +271,6 @@ void loop()
     xTaskCreate(downStreamTask, "downStream", 10000, NULL, 3, &downStream_handle);
     downStream = true;
   }
-  delay(50);
 }
 
 void wifi_event_handler(WiFiEvent_t event)
