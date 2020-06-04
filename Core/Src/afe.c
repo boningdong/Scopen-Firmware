@@ -25,6 +25,11 @@
 #include "cmsis_os.h"
 #include <stdio.h>
 
+#define ADC_SAMPLE_TIME_CYCLES   ADC_SAMPLETIME_6CYCLES_5
+#define ADC_OVERSAMPLE_STATE     DISABLE
+#define ADC_OVERSAMPLE_RATIO     ADC_OVERSAMPLING_RATIO_4
+#define ADC_OVERSAMPLE_BITSHIT   ADC_RIGHTBITSHIFT_2
+
 #define ADC1_GPIO GPIO_PIN_0|GPIO_PIN_1
 #define ADC2_GPIO GPIO_PIN_6|GPIO_PIN_7
 #define ADC4_GPIO GPIO_PIN_12|GPIO_PIN_14;
@@ -114,6 +119,7 @@ OPAMP_HandleTypeDef hopamp3;
  *        Uses afe_adc_initialize and afe_adc_hrtim_initialize
  */
 void afe_initialize(){
+
     // Initialize the global configs and mutex.
     osSemaphoreDef(GainLock);
     osSemaphoreDef(SampleSwitch);
@@ -122,7 +128,6 @@ void afe_initialize(){
     sem_sample_paras = osSemaphoreCreate(osSemaphore(ParasLock), 1);
     gain_mode_lock = osSemaphoreCreate(osSemaphore(GainLock), 1);
     
-
     //Initializes Relay pin and sets it to off
     __HAL_RCC_GPIOA_CLK_ENABLE();
     GPIO_InitTypeDef GPIO_InitStruct = {0};
@@ -132,6 +137,8 @@ void afe_initialize(){
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);   
+
+    
 
     //DAC for gain control in VGA
     __HAL_RCC_DAC1_CLK_ENABLE();
@@ -268,7 +275,11 @@ void afe_adc_initialize() {
     hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
     hadc1.Init.DMAContinuousRequests = ENABLE;
     hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
-    hadc1.Init.OversamplingMode = DISABLE;
+    hadc1.Init.OversamplingMode = ADC_OVERSAMPLE_STATE;
+    hadc1.Init.Oversampling.Ratio = ADC_OVERSAMPLE_RATIO;
+    hadc1.Init.Oversampling.RightBitShift = ADC_OVERSAMPLE_BITSHIT;
+    hadc1.Init.Oversampling.TriggeredMode = ADC_TRIGGEREDMODE_SINGLE_TRIGGER;
+    hadc1.Init.Oversampling.OversamplingStopReset = ADC_REGOVERSAMPLING_CONTINUED_MODE;
     if (HAL_ADC_Init(&hadc1) != HAL_OK)
     {
     Error_Handler();
@@ -280,7 +291,7 @@ void afe_adc_initialize() {
     }
     sConfig.Channel = ADC_CHANNEL_1;
     sConfig.Rank = ADC_REGULAR_RANK_1;
-    sConfig.SamplingTime = ADC_SAMPLETIME_6CYCLES_5;
+    sConfig.SamplingTime = ADC_SAMPLE_TIME_CYCLES;
     sConfig.SingleDiff = ADC_DIFFERENTIAL_ENDED;
     sConfig.OffsetNumber = ADC_OFFSET_NONE;
     sConfig.Offset = 0;
@@ -326,14 +337,18 @@ void afe_adc_initialize() {
     hadc2.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
     hadc2.Init.DMAContinuousRequests = ENABLE;
     hadc2.Init.Overrun = ADC_OVR_DATA_PRESERVED;
-    hadc2.Init.OversamplingMode = DISABLE;
+    hadc2.Init.OversamplingMode = ADC_OVERSAMPLE_STATE;
+    hadc2.Init.Oversampling.Ratio = ADC_OVERSAMPLE_RATIO;
+    hadc2.Init.Oversampling.RightBitShift = ADC_OVERSAMPLE_BITSHIT;
+    hadc2.Init.Oversampling.TriggeredMode = ADC_TRIGGEREDMODE_SINGLE_TRIGGER;
+    hadc2.Init.Oversampling.OversamplingStopReset = ADC_REGOVERSAMPLING_CONTINUED_MODE;
     if (HAL_ADC_Init(&hadc2) != HAL_OK)
     {
         Error_Handler();
     }
     sConfig.Channel = ADC_CHANNEL_3;
     sConfig.Rank = ADC_REGULAR_RANK_1;
-    sConfig.SamplingTime = ADC_SAMPLETIME_6CYCLES_5;
+    sConfig.SamplingTime = ADC_SAMPLE_TIME_CYCLES;
     sConfig.SingleDiff = ADC_DIFFERENTIAL_ENDED;
     sConfig.OffsetNumber = ADC_OFFSET_NONE;
     sConfig.Offset = 0;
@@ -381,14 +396,19 @@ void afe_adc_initialize() {
     hadc4.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
     hadc4.Init.DMAContinuousRequests = ENABLE;
     hadc4.Init.Overrun = ADC_OVR_DATA_PRESERVED;
-    hadc4.Init.OversamplingMode = DISABLE;
+    hadc4.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+    hadc4.Init.OversamplingMode = ADC_OVERSAMPLE_STATE;
+    hadc4.Init.Oversampling.Ratio = ADC_OVERSAMPLE_RATIO;
+    hadc4.Init.Oversampling.RightBitShift = ADC_OVERSAMPLE_BITSHIT;
+    hadc4.Init.Oversampling.TriggeredMode = ADC_TRIGGEREDMODE_SINGLE_TRIGGER;
+    hadc4.Init.Oversampling.OversamplingStopReset = ADC_REGOVERSAMPLING_CONTINUED_MODE;
     if (HAL_ADC_Init(&hadc4) != HAL_OK)
     {
         Error_Handler();
     }
     sConfig.Channel = ADC_CHANNEL_3;
     sConfig.Rank = ADC_REGULAR_RANK_1;
-    sConfig.SamplingTime = ADC_SAMPLETIME_6CYCLES_5;
+    sConfig.SamplingTime = ADC_SAMPLE_TIME_CYCLES;
     sConfig.SingleDiff = ADC_DIFFERENTIAL_ENDED;
     sConfig.OffsetNumber = ADC_OFFSET_NONE;
     sConfig.Offset = 0;
@@ -434,14 +454,20 @@ void afe_adc_initialize() {
     hadc5.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
     hadc5.Init.DMAContinuousRequests = ENABLE;
     hadc5.Init.Overrun = ADC_OVR_DATA_PRESERVED;
-    hadc5.Init.OversamplingMode = DISABLE;
+    hadc5.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+    hadc5.Init.OversamplingMode = ADC_OVERSAMPLE_STATE;
+    hadc5.Init.Oversampling.Ratio = ADC_OVERSAMPLE_RATIO;
+    hadc5.Init.Oversampling.RightBitShift = ADC_OVERSAMPLE_BITSHIT;
+    hadc5.Init.Oversampling.TriggeredMode = ADC_TRIGGEREDMODE_SINGLE_TRIGGER;
+    hadc5.Init.Oversampling.OversamplingStopReset = ADC_REGOVERSAMPLING_CONTINUED_MODE;
+
     if (HAL_ADC_Init(&hadc5) != HAL_OK)
     {
         Error_Handler();
     }
     sConfig.Channel = ADC_CHANNEL_1;
     sConfig.Rank = ADC_REGULAR_RANK_1;
-    sConfig.SamplingTime = ADC_SAMPLETIME_6CYCLES_5;
+    sConfig.SamplingTime = ADC_SAMPLE_TIME_CYCLES;
     sConfig.SingleDiff =ADC_DIFFERENTIAL_ENDED;
     sConfig.OffsetNumber = ADC_OFFSET_NONE;
     sConfig.Offset = 0;
