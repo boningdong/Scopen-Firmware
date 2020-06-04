@@ -293,8 +293,9 @@ void afe_adc_initialize() {
     sConfig.Rank = ADC_REGULAR_RANK_1;
     sConfig.SamplingTime = ADC_SAMPLE_TIME_CYCLES;
     sConfig.SingleDiff = ADC_DIFFERENTIAL_ENDED;
-    sConfig.OffsetNumber = ADC_OFFSET_NONE;
-    sConfig.Offset = 0;
+    sConfig.OffsetSaturation = ENABLE;
+    sConfig.OffsetNumber = ADC_OFFSET_1;
+    sConfig.Offset = 8;
     if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
     {
     Error_Handler();
@@ -350,8 +351,9 @@ void afe_adc_initialize() {
     sConfig.Rank = ADC_REGULAR_RANK_1;
     sConfig.SamplingTime = ADC_SAMPLE_TIME_CYCLES;
     sConfig.SingleDiff = ADC_DIFFERENTIAL_ENDED;
-    sConfig.OffsetNumber = ADC_OFFSET_NONE;
-    sConfig.Offset = 0;
+    sConfig.OffsetSaturation = ENABLE;
+    sConfig.OffsetNumber = ADC_OFFSET_1;
+    sConfig.Offset = 8;
     if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
     {
         Error_Handler();
@@ -410,8 +412,9 @@ void afe_adc_initialize() {
     sConfig.Rank = ADC_REGULAR_RANK_1;
     sConfig.SamplingTime = ADC_SAMPLE_TIME_CYCLES;
     sConfig.SingleDiff = ADC_DIFFERENTIAL_ENDED;
-    sConfig.OffsetNumber = ADC_OFFSET_NONE;
-    sConfig.Offset = 0;
+    sConfig.OffsetSaturation = ENABLE;
+    sConfig.OffsetNumber = ADC_OFFSET_1;
+    sConfig.Offset = 8;
     if (HAL_ADC_ConfigChannel(&hadc4, &sConfig) != HAL_OK)
     {
         Error_Handler();
@@ -469,8 +472,9 @@ void afe_adc_initialize() {
     sConfig.Rank = ADC_REGULAR_RANK_1;
     sConfig.SamplingTime = ADC_SAMPLE_TIME_CYCLES;
     sConfig.SingleDiff =ADC_DIFFERENTIAL_ENDED;
-    sConfig.OffsetNumber = ADC_OFFSET_NONE;
-    sConfig.Offset = 0;
+    sConfig.OffsetSaturation = ENABLE;
+    sConfig.OffsetNumber = ADC_OFFSET_1;
+    sConfig.Offset = 8;
     if (HAL_ADC_ConfigChannel(&hadc5, &sConfig) != HAL_OK)
     {
         Error_Handler();
