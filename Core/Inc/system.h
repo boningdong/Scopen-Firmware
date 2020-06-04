@@ -16,6 +16,10 @@
 
 #include "main.h"
 
+#define POWER_MANAGE_GROUP    GPIOE
+#define POWER_GOOD_PIN        GPIO_PIN_4
+#define POWER_CHG_PIN         GPIO_PIN_2
+
 #define GPIO_PIN_ESP32_NSS    GPIO_PIN_15
 #define GPIO_PIN_ESP32_SCK    GPIO_PIN_10
 #define GPIO_PIN_ESP32_MOSI   GPIO_PIN_11
