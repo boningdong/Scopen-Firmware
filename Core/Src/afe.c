@@ -280,7 +280,7 @@ void afe_adc_initialize() {
     }
     sConfig.Channel = ADC_CHANNEL_1;
     sConfig.Rank = ADC_REGULAR_RANK_1;
-    sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
+    sConfig.SamplingTime = ADC_SAMPLETIME_6CYCLES_5;
     sConfig.SingleDiff = ADC_DIFFERENTIAL_ENDED;
     sConfig.OffsetNumber = ADC_OFFSET_NONE;
     sConfig.Offset = 0;
@@ -333,7 +333,7 @@ void afe_adc_initialize() {
     }
     sConfig.Channel = ADC_CHANNEL_3;
     sConfig.Rank = ADC_REGULAR_RANK_1;
-    sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
+    sConfig.SamplingTime = ADC_SAMPLETIME_6CYCLES_5;
     sConfig.SingleDiff = ADC_DIFFERENTIAL_ENDED;
     sConfig.OffsetNumber = ADC_OFFSET_NONE;
     sConfig.Offset = 0;
@@ -388,7 +388,7 @@ void afe_adc_initialize() {
     }
     sConfig.Channel = ADC_CHANNEL_3;
     sConfig.Rank = ADC_REGULAR_RANK_1;
-    sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
+    sConfig.SamplingTime = ADC_SAMPLETIME_6CYCLES_5;
     sConfig.SingleDiff = ADC_DIFFERENTIAL_ENDED;
     sConfig.OffsetNumber = ADC_OFFSET_NONE;
     sConfig.Offset = 0;
@@ -441,7 +441,7 @@ void afe_adc_initialize() {
     }
     sConfig.Channel = ADC_CHANNEL_1;
     sConfig.Rank = ADC_REGULAR_RANK_1;
-    sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
+    sConfig.SamplingTime = ADC_SAMPLETIME_6CYCLES_5;
     sConfig.SingleDiff =ADC_DIFFERENTIAL_ENDED;
     sConfig.OffsetNumber = ADC_OFFSET_NONE;
     sConfig.Offset = 0;
