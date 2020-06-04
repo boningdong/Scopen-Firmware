@@ -757,19 +757,16 @@ void afe_set_gain(uint8_t mode) {
         gaindb = 20*log10(pkpk / 1.0);
         break; 
       case 4: //200mV/Division 2Vpp
-        gaindb = 20*log10(pkpk / 2.0);
+        gaindb = 24;
         break; 
       case 5: //500mV/Division 5Vpp                                                                                                                                                                                                                                                                                                             
-        attenuated = 5 * 0.024; 
-        gaindb = 20*log10(pkpk / attenuated);
+        gaindb = 16.6569;
         break; 
       case 6: //1V/Division 10vpp
-       attenuated = 10 * 0.024; 
-        gaindb = 20*log10(pkpk / attenuated);;
+        gaindb = 10.6362;
         break; 
       case 7: //2V/Division 20Vpp
-        attenuated = 20 * 0.024; 
-        gaindb = 20*log10(pkpk / attenuated);
+        gaindb = 0;
         break; 
       case 8: //5V/Division 50Vpp
         attenuated = 50 * 0.024; 
