@@ -132,6 +132,7 @@ void IRAM_ATTR flagReadADCData(void) {
 }
 
 void upStreamTask(void* pvParameters) {
+  bool headerFailed = false;
   while (true) {
     if (interrupt_flag) {
       interrupt_flag = 0;
@@ -139,7 +140,12 @@ void upStreamTask(void* pvParameters) {
 
       if (verify_cmd_from_stm(incoming.data_type)) {
         if (isConnected && clientTX.connected()){
-          send_header_wifi(incoming.data_left, incoming.data_type);
+          if(send_header_wifi(incoming.data_left, incoming.data_type)){
+            headerFailed = false;
+          }
+          else{
+            headerFailed = true;
+          }
         }
         else{
           isConnected = false;
@@ -158,7 +164,7 @@ void upStreamTask(void* pvParameters) {
 //          Serial.println("\n");
           #endif
           read_message_stm(incoming.msg, readLength);
-          if (isConnected && clientTX.connected()){
+          if (isConnected && clientTX.connected()&&!headerFailed){
             write_message_wifi(incoming.msg, readLength);
           }
           else{
