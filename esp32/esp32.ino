@@ -277,6 +277,10 @@ void wifi_event_handler(WiFiEvent_t event)
 //      Serial.println("WiFi access point started.");
       break;
     case SYSTEM_EVENT_AP_STACONNECTED:
+      if(!udpOn){
+        udp.begin(SCAN_LISTEN_PORT);
+        udpOn = true;
+      }
 //      Serial.println("WIFI Client connected.");
       break;
     case SYSTEM_EVENT_AP_STADISCONNECTED:
