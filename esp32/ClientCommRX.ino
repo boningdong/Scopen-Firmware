@@ -20,11 +20,11 @@ void read_header_wifi(uint32_t &data_size, uint8_t &data_type) {
   clientRX.read(header, HEADER_SIZE);
   parseBigEndian(header, data_size);
   data_type = header[HEADER_SIZE - 1];
-//  Serial.print("WIFI Header: ");
-//  for (int i = 0; i < 5; i++) {
-//    Serial.print(header[i]); Serial.print(" ");
-//  }
-//  Serial.println("");
+  Serial.print("WIFI Header: ");
+  for (int i = 0; i < 5; i++) {
+    Serial.print(header[i]); Serial.print(" ");
+  }
+  Serial.println("");
   clientRX.flush();
 //  Serial.print("Data size: "); Serial.println(data_size);
 //  Serial.print("Data type: "); Serial.println(data_type);

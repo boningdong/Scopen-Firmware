@@ -17,7 +17,7 @@ bool udp_listen() {
       temp.toCharArray(scan_send_msg, 1024);
       udp.beginPacket(userIP, SCAN_REPLY_PORT);
       udp.write((uint8_t*)scan_send_msg, 1024);
-//      Serial.println(scan_send_msg);
+      Serial.println(scan_send_msg);
       udp.endPacket();
       return true;
     }
