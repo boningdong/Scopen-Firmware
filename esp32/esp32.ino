@@ -9,7 +9,7 @@
 #include <stdint.h>
 #include <SPI.h>
 
-// #define SPI_DEBUG
+#define SPI_DEBUG
 
 //SPI Pins
 static const int MISO_PIN = 13;
@@ -56,7 +56,7 @@ static const char SCAN_MESSAGE[] = "SCOPEN_SCAN";
 char scan_send_msg[1024] = "";
 
 //SPI settings
-static const uint16_t MAX_SPI_BUFFER = 4096;
+static const uint16_t MAX_SPI_BUFFER = 1436;
 static const uint32_t SPI_SPEED = 10000000;
 
 //UART buffer
@@ -64,7 +64,7 @@ static const uint8_t MAX_UART_BUFFER = 16;
 
 
 //ClientComm functions
-bool udp_listen();
+void udp_listen();
 bool check_tcp_client();
 void tcp_start();
 void tcp_stop();
@@ -107,6 +107,9 @@ struct downStream {
 };
 downStream down_stream;
 
+SemaphoreHandle_t upstream_sem = xSemaphoreCreateCounting(10, 0);
+SemaphoreHandle_t connection_sem = xSemaphoreCreateBinary();
+SemaphoreHandle_t udp_lock = xSemaphoreCreateMutex();
 WiFiUDP udp;
 WiFiServer serverTX;
 WiFiServer serverRX;
@@ -118,7 +121,7 @@ IPAddress penIP;
 SPIClass spi(HSPI);
 
 TaskHandle_t downStream_handle;
-
+TaskHandle_t udp_listener_handle;
 bool downStream = false;
 bool isConnected = false;
 bool udpOn = false;
@@ -126,107 +129,121 @@ uint8_t ack_failed_count = 0;
 uint8_t interrupt_flag = 0;
 
 void IRAM_ATTR flagReadADCData(void) {
-  interrupt_flag = 1;
-//  Serial.println("");
-//  Serial.println("Interrupted");
+  xSemaphoreGiveFromISR(upstream_sem, NULL);
 }
 
 void upStreamTask(void* pvParameters) {
-  while (true) {
-    if (interrupt_flag) {
-      interrupt_flag = 0;
-      read_header_stm(incoming.data_left, incoming.data_type);
-
-      if (verify_cmd_from_stm(incoming.data_type)) {
-        if (isConnected && clientTX.connected()){
-          send_header_wifi(incoming.data_left, incoming.data_type);
+  bool sentHeader = false;
+  for (;;) {
+    xSemaphoreTake(upstream_sem, portMAX_DELAY);
+    sentHeader = false;
+    read_header_stm(incoming.data_left, incoming.data_type);
+    if (verify_cmd_from_stm(incoming.data_type)) {
+      if (clientTX.connected()) {
+        if (send_header_wifi(incoming.data_left, incoming.data_type)) {
+          Serial.println("WIFI Header sent");
+          sentHeader = true;
         }
-        else{
-          isConnected = false;
-        }
-        #ifdef SPI_DEBUG
-//        Serial.println("Reading and sending in chunks");
-        #endif
-        while (incoming.data_left > 0) {
-          uint32_t readLength = incoming.data_left > MAX_SPI_BUFFER ? MAX_SPI_BUFFER : incoming.data_left;
-          #ifdef SPI_DEBUG
-          Serial.print("Data left: ");
-          Serial.print(incoming.data_left);
-          Serial.println("");
-          Serial.print("Read Length: ");
-          Serial.print(readLength);
-          Serial.println("\n");
-          #endif
-          read_message_stm(incoming.msg, readLength);
-          if (isConnected && clientTX.connected()){
-            write_message_wifi(incoming.msg, readLength);
-          }
-          else{
-            isConnected = false;
-          }
-          
-          incoming.data_left = incoming.data_left - readLength;
-
-        }
-        send_ack_stm();
-        incoming.data_left = 0;
-      }
-      else {
-//        Serial.println("Wrong header datatype sent from SPI");
-        incoming.data_left = 0;
+      } else {
+        xSemaphoreGive(connection_sem);
       }
     }
-    delay(1);
+#ifdef SPI_DEBUG
+    Serial.println("Reading and sending in chunks");
+#endif
+    while (incoming.data_left > 0) {
+      uint32_t readLength = incoming.data_left > MAX_SPI_BUFFER ? MAX_SPI_BUFFER : incoming.data_left;
+#ifdef SPI_DEBUG
+      Serial.print("Data left: ");
+      Serial.print(incoming.data_left);
+      Serial.println("");
+      Serial.print("Read Length: ");
+      Serial.print(readLength);
+      Serial.println("\n");
+#endif
+      read_message_stm(incoming.msg, readLength);
+      if (clientTX.connected() && sentHeader) {
+        write_message_wifi(incoming.msg, readLength);
+      }
+      incoming.data_left = incoming.data_left - readLength;
+    }
+    send_ack_stm();
+    incoming.data_left = 0;
+    delay(50);
   }
+  vTaskDelete(NULL);
 }
 
 void downStreamTask(void* pvParameters) {
-  while (isConnected && clientRX.connected()) {
-    if (clientRX.available() == HEADER_SIZE) {
-      read_header_wifi(down_stream.data_left, down_stream.data_type);
-
-      if (verify_cmd_from_user(down_stream.data_type)) {
-        send_ack_wifi();
-        if (down_stream.data_left) {
-          if (wifi_timeout_check_size(20,down_stream.data_left)) {
-            read_message_wifi(down_stream.msg, down_stream.data_left);
-            send_ack_wifi();
-            send_header_stm(down_stream.data_left, down_stream.data_type);
-            write_message_stm(down_stream.msg, down_stream.data_left);
-          }
-          else{
-            send_ack_wifi();
-            if(clientRX.available() > 0){
-              clientRX.flush();
+  for (;;) {
+    if (clientRX.connected()) {
+      if (clientRX.available() == HEADER_SIZE) {
+        read_header_wifi(down_stream.data_left, down_stream.data_type);
+        if (verify_cmd_from_user(down_stream.data_type)) {
+          send_ack_wifi();
+          if (down_stream.data_left) {
+            if (wifi_timeout_check_size(20, down_stream.data_left)) {
+              read_message_wifi(down_stream.msg, down_stream.data_left);
+              send_ack_wifi();
+              send_header_stm(down_stream.data_left, down_stream.data_type);
+              write_message_stm(down_stream.msg, down_stream.data_left);
+            }
+            else {
+              send_ack_wifi();
+              if (clientRX.available() > 0) {
+                clientRX.flush();
+              }
             }
           }
         }
-      }
-      else {
-        Serial.println("Wrong header dataType recieved from WIFI");
-        send_ack_wifi();
+        else {
+          Serial.println("Wrong header dataType recieved from WIFI");
+          send_ack_wifi();
+        }
       }
     }
+    delay(50);
   }
-
-//  Serial.println("TCP Client disconnected");
-  isConnected = false;
-  downStream = false;
-  vTaskDelete(downStream_handle);
+  vTaskDelete(NULL);
 }
 
+void udp_listener(void* pvParameters) {
+  String msg;
+  for (;;) {
+    msg = udp.readString();
+    if (msg == SCAN_MESSAGE) {
+      userIP = udp.remoteIP();
+      String temp = "<105|1|105|" + penIP.toString() + '|' + TCP_PORT_RX + '|' + TCP_PORT_TX + '>';
+      temp.toCharArray(scan_send_msg, 1024);
+      udp.beginPacket(userIP, SCAN_REPLY_PORT);
+      udp.write((uint8_t*)scan_send_msg, 1024);
+      Serial.println(scan_send_msg);
+      udp.endPacket();
+    }
+    delay(50);
+  }
+}
+
+void connection_checker(void* pvParameters) {
+  for (;;) {
+    if (check_tcp_client()) {
+      vTaskSuspend(udp_listener_handle);
+      udp.stop(); Serial.println("Connected");
+      xSemaphoreTake(connection_sem, portMAX_DELAY);
+      udp.begin(SCAN_LISTEN_PORT);
+      vTaskResume(udp_listener_handle);
+    }
+    delay(50);
+  }
+}
 
 void setup()
 {
   Serial.begin(115200);
   Serial2.begin(115200, SERIAL_8N1, serial_RX_Pin, serial_TX_Pin);
-  //wifi_power_t power;
-//  Serial.println("Creating AP ...");
   WiFi.softAP(ssid, password);
   penIP = WiFi.softAPIP();
   WiFi.setTxPower(WIFI_POWER_11dBm);
-//  Serial.println("AP IP address: ");
-//  Serial.print(penIP);
 
   pinMode(SS_PIN, OUTPUT);
   digitalWrite(SS_PIN, HIGH);
@@ -235,57 +252,40 @@ void setup()
   spi.begin(SCK_PIN, MISO_PIN, MOSI_PIN, SS_PIN);
 
   WiFi.onEvent(wifi_event_handler);
-  xTaskCreate(upStreamTask, "downStream", 10000, NULL, 2, NULL);
+
   udp.begin(SCAN_LISTEN_PORT);
   Serial.println("UDP ENABLED");
   udpOn = true;
   tcp_start();
   delay(500);
+  xTaskCreate(upStreamTask, "upstream", 10000, NULL, 2, NULL);
+  xTaskCreate(udp_listener, "udp_listener", 10000, NULL, 3, &udp_listener_handle);
+  xTaskCreate(connection_checker, "connection", 10000, NULL, 4, NULL);
+  xTaskCreate(downStreamTask, "downstream", 10000, NULL, 1, NULL);
 }
 
 
 
 void loop()
 {
-  if(!isConnected && !udpOn ){
-    udp.begin(SCAN_LISTEN_PORT);
-    udpOn = true;
-  }
-  if (!isConnected && udp_listen()) {
-    Serial.println("Recieved Scopen message");
-    delay(10);
-  }
-  if (!isConnected && check_tcp_client()) {
-    udp.stop();
-    udpOn = false;
-    Serial.println("Connected");
-    isConnected = true;
-    if (downStream)
-      vTaskDelete(downStream_handle);
-    xTaskCreate(downStreamTask, "downStream", 10000, NULL, 3, &downStream_handle);
-    downStream = true;
-  }
+  vTaskSuspend(NULL);
 }
 
 void wifi_event_handler(WiFiEvent_t event)
 {
-//  Serial.println("[WiFi Event]");
+  //  Serial.println("[WiFi Event]");
   switch (event)
   {
     case SYSTEM_EVENT_AP_START:
       Serial.println("WiFi access point started.");
       break;
     case SYSTEM_EVENT_AP_STACONNECTED:
-      if(!udpOn){
-        udp.begin(SCAN_LISTEN_PORT);
-        udpOn = true;
-      }
       Serial.println("WIFI Client connected.");
       break;
     case SYSTEM_EVENT_AP_STADISCONNECTED:
       Serial.println("WIFI Client disconnected.");
-      isConnected = false;
-      break; 
+      xSemaphoreGive(connection_sem);
+      break;
   }
   Serial.println("");
 }

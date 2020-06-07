@@ -26,8 +26,9 @@ void read_header_stm(uint32_t &spi_data_size, uint8_t &spi_data_type){
    #endif
    parseBigEndian(header, spi_data_size);
    spi_data_type = header[HEADER_SIZE-1];
-//    Serial.print("Data size: "); Serial.println(spi_data_size);
-//    Serial.print("Data type: "); Serial.println(spi_data_type);
+    Serial.print("SPI RX Data size: "); Serial.println(spi_data_size);
+    Serial.print("SPI RX Data type: "); Serial.println(spi_data_type);
+    Serial.println("");
 }
 
 /**

@@ -7,7 +7,6 @@
  * @param data_size Data type of body to be sent.
  */
 bool send_header_wifi(const uint32_t &data_size, const uint8_t &data_type) {
-  assert(clientTX.connected());
   byte header[HEADER_SIZE];
   constructHeader(header, data_size, data_type);
   if (clientTX.available() > 0) {
@@ -15,7 +14,7 @@ bool send_header_wifi(const uint32_t &data_size, const uint8_t &data_type) {
   }
   clientTX.write(header, HEADER_SIZE);
 
-  return wait_for_ack_wifi(100);
+  return wait_for_ack_wifi(600);
 }
 
 /**
@@ -27,12 +26,11 @@ bool send_header_wifi(const uint32_t &data_size, const uint8_t &data_type) {
    @param data_length Amount of data to be sent.
 */
 bool write_message_wifi(const uint8_t* msg, const uint32_t &data_length) {
-  assert(clientTX.connected());
   if (clientTX.available() > 0) {
     clientTX.flush();
   }
-  clientTX.write(msg, data_length);
-  return wait_for_ack_wifi(100);
+  Serial.println(clientTX.write(msg, data_length));
+  return wait_for_ack_wifi(600);
 }
 
 /**
@@ -51,14 +49,14 @@ bool wait_for_ack_wifi(int timeout) {
   }
   
   if ((current_time - sec) >= timeout) {
-//    Serial.println("WIFI ACK timed out");
+    Serial.println("WIFI ACK timed out\n");
     return false;
   }
   if (clientTX.read() == (int)'A') {
       return true;
     }
   else {
-//      Serial.println("Wrong ACK recieved WIFI");
+      Serial.println("Wrong ACK recieved WIFI");
   }
   return false;
 }
